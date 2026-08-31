@@ -19,7 +19,7 @@ npm test
 
 Pushing to `main` builds the app and deploys it to GitHub Pages automatically (see
 `.github/workflows/deploy.yml`). The site will be available at
-`https://<your-github-username>.github.io/fantasy_football_keeper/`.
+`https://<your-github-username>.github.io/cheaper_to_keeper_ffb/`.
 
 ## Status
 
