@@ -1,4 +1,4 @@
-# Keeper League Manager
+# Cheaper To Keeper Manager
 
 A tool for managing a fantasy football keeper league year to year: tracks keeper eligibility and
 escalating draft-round cost per player, lets each manager privately submit their own keeper picks,

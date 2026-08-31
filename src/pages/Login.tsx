@@ -32,7 +32,7 @@ export function Login() {
 
   return (
     <div className="auth-page">
-      <h1>Keeper League Manager</h1>
+      <h1>Cheaper To Keeper Manager</h1>
       <form onSubmit={handleSubmit}>
         <label htmlFor="email">Email</label>
         <input
