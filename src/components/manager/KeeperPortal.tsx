@@ -273,7 +273,8 @@ export function KeeperPortal({ season, managerSeason }: Props) {
 
   return (
     <section>
-      <h2>Keeper selection — {season.year}</h2>
+      <h2>Keeper selection for the {season.year + 1} draft</h2>
+      <p>Based on your {season.year} roster.</p>
 
       {candidates.length === 0 ? (
         <p>No rostered players with lineage history found for you this season yet.</p>
@@ -283,9 +284,9 @@ export function KeeperPortal({ season, managerSeason }: Props) {
             <tr>
               {!isFinalized && <th></th>}
               <th>Player</th>
-              <th>{season.year} round</th>
-              <th>Eligible?</th>
               <th>{season.year + 1} round if kept</th>
+              <th>Eligible?</th>
+              <th>{season.year} round</th>
               <th>Uses injury exemption</th>
             </tr>
           </thead>
@@ -306,9 +307,9 @@ export function KeeperPortal({ season, managerSeason }: Props) {
                     </td>
                   )}
                   <td>{c.playerName}</td>
-                  <td>{c.currentRound}</td>
-                  <td>{c.eligible ? 'Yes' : `No (${c.ineligibleReason})`}</td>
                   <td>{c.eligible ? c.keeperSlotRound : '—'}</td>
+                  <td>{c.eligible ? 'Yes' : `No (${c.ineligibleReason})`}</td>
+                  <td>{c.currentRound}</td>
                   <td>{c.eligible && c.usesInjuryExemptionSlot ? 'Yes' : ''}</td>
                 </tr>
               );
