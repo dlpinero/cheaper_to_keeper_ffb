@@ -283,9 +283,9 @@ export function KeeperPortal({ season, managerSeason }: Props) {
             <tr>
               {!isFinalized && <th></th>}
               <th>Player</th>
-              <th>Current round</th>
+              <th>{season.year} round</th>
               <th>Eligible?</th>
-              <th>Keeper round if kept</th>
+              <th>{season.year + 1} round if kept</th>
               <th>Uses injury exemption</th>
             </tr>
           </thead>
