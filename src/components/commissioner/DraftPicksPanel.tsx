@@ -16,6 +16,7 @@ export function DraftPicksPanel({ season }: Props) {
   const [round, setRound] = useState(1);
   const [pickInRound, setPickInRound] = useState(1);
   const [isKeeperPick, setIsKeeperPick] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function load() {
     const [{ data: p }, { data: ms }, { data: pl }] = await Promise.all([
@@ -38,11 +39,14 @@ export function DraftPicksPanel({ season }: Props) {
   }, [season.id]);
 
   const teamsPerRound = managerSeasons.length || 1;
+  const draftedPlayerIds = new Set(picks.map((p) => p.player_id));
+  const availablePlayers = players.filter((p) => !draftedPlayerIds.has(p.id));
 
   async function addPick(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     const overallPick = (round - 1) * teamsPerRound + pickInRound;
-    const { error } = await supabase.from('draft_picks').insert({
+    const { error: insertErr } = await supabase.from('draft_picks').insert({
       season_id: season.id,
       manager_season_id: managerSeasonId,
       player_id: playerId,
@@ -52,11 +56,19 @@ export function DraftPicksPanel({ season }: Props) {
       is_keeper_pick: isKeeperPick,
       source: 'manual',
     });
+    if (insertErr) {
+      setError(
+        insertErr.code === '23505'
+          ? 'That player has already been drafted this season.'
+          : insertErr.message,
+      );
+      return;
+    }
     // A fresh (non-keeper) draft pick seeds keeper_lineage as the starting point for
     // future compounding math. A kept player's lineage entry is instead written when
     // their keeper selection is finalized (Phase 3), since origin/locking depends on
     // whether the injury exemption was used.
-    if (!error && !isKeeperPick) {
+    if (!isKeeperPick) {
       await supabase.from('keeper_lineage').insert({
         player_id: playerId,
         season_id: season.id,
@@ -66,13 +78,11 @@ export function DraftPicksPanel({ season }: Props) {
         locked_forever: false,
       });
     }
-    if (!error) {
-      setPickInRound(pickInRound + 1 > teamsPerRound ? 1 : pickInRound + 1);
-      if (pickInRound + 1 > teamsPerRound) setRound(round + 1);
-      setPlayerId('');
-      setIsKeeperPick(false);
-      load();
-    }
+    setPickInRound(pickInRound + 1 > teamsPerRound ? 1 : pickInRound + 1);
+    if (pickInRound + 1 > teamsPerRound) setRound(round + 1);
+    setPlayerId('');
+    setIsKeeperPick(false);
+    load();
   }
 
   async function removePick(pick: DraftPick) {
@@ -125,7 +135,7 @@ export function DraftPicksPanel({ season }: Props) {
         <label htmlFor="player">Player</label>
         <select id="player" required value={playerId} onChange={(e) => setPlayerId(e.target.value)}>
           <option value="">Select player</option>
-          {players.map((p) => (
+          {availablePlayers.map((p) => (
             <option key={p.id} value={p.id}>
               {p.full_name}
             </option>
@@ -140,6 +150,7 @@ export function DraftPicksPanel({ season }: Props) {
           Keeper pick
         </label>
         <button type="submit">Add pick</button>
+        {error && <p className="error">{error}</p>}
       </form>
 
       <table>
