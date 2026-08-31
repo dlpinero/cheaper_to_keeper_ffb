@@ -177,6 +177,19 @@ export type Database = {
       commissioner_overrides: Table<CommissionerOverride>;
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      claim_manager_seat: { Args: Record<string, never>; Returns: Manager };
+      finalize_keeper_selection: { Args: { p_keeper_selection_id: string }; Returns: void };
+      commissioner_override_pick: {
+        Args: {
+          p_pick_id: string;
+          p_new_player_id: string;
+          p_new_slot_round: number;
+          p_reason: OverrideReason;
+          p_notes: string | null;
+        };
+        Returns: void;
+      };
+    };
   };
 };

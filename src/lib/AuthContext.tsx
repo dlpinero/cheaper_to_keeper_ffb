@@ -8,6 +8,8 @@ interface AuthState {
   session: Session | null;
   manager: Manager | null;
   loading: boolean;
+  recoveryMode: boolean;
+  clearRecoveryMode: () => void;
   refreshManager: () => Promise<void>;
 }
 
@@ -17,6 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [manager, setManager] = useState<Manager | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recoveryMode, setRecoveryMode] = useState(false);
 
   async function loadManagerForSession(currentSession: Session | null) {
     if (!currentSession) {
@@ -46,7 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loadManagerForSession(data.session).finally(() => setLoading(false));
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoveryMode(true);
+      }
       setSession(newSession);
       loadManagerForSession(newSession);
     });
@@ -58,8 +64,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loadManagerForSession(session);
   }
 
+  function clearRecoveryMode() {
+    setRecoveryMode(false);
+  }
+
   return (
-    <AuthContext.Provider value={{ session, manager, loading, refreshManager }}>
+    <AuthContext.Provider
+      value={{ session, manager, loading, recoveryMode, clearRecoveryMode, refreshManager }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -120,6 +120,30 @@ p {
   margin-bottom: -0.5rem;
 }
 
+.auth-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--primary-dark);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.link-button:hover {
+  background: none;
+  color: var(--primary);
+}
+
 /* Tabs */
 
 .tabs {

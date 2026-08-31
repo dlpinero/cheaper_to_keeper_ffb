@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { computeKeeperOption } from '../../engine';
-import type { LineageEntry } from '../../engine/types';
+import { buildLineageHistory } from '../../lib/lineageHistory';
 import type {
   InjuryExemptionClaim,
   KeeperLineage,
@@ -58,24 +58,7 @@ export function KeeperLineagePreview({ season }: Props) {
     const teamNameFor = (managerSeasonId: string) =>
       managerSeasons?.find((ms) => ms.id === managerSeasonId)?.team_name ?? '?';
 
-    const historyByPlayer = new Map<string, LineageEntry[]>();
-    for (const entry of (lineage ?? []) as KeeperLineage[]) {
-      const year = seasonYearById.get(entry.season_id);
-      if (year === undefined) continue;
-      const mapped: LineageEntry = {
-        playerId: entry.player_id,
-        seasonYear: year,
-        slotRound: entry.slot_round,
-        origin: entry.origin,
-        lockedForever: entry.locked_forever,
-      };
-      const list = historyByPlayer.get(entry.player_id) ?? [];
-      list.push(mapped);
-      historyByPlayer.set(entry.player_id, list);
-    }
-    for (const list of historyByPlayer.values()) {
-      list.sort((a, b) => a.seasonYear - b.seasonYear);
-    }
+    const historyByPlayer = buildLineageHistory((lineage ?? []) as KeeperLineage[], seasonYearById);
 
     const approvedClaimByPlayer = new Map(
       ((claims ?? []) as InjuryExemptionClaim[]).map((c) => [c.player_id, c]),

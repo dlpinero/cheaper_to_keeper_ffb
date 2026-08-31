@@ -8,6 +8,7 @@ import { PlayersPanel } from '../components/commissioner/PlayersPanel';
 import { DraftPicksPanel } from '../components/commissioner/DraftPicksPanel';
 import { InjuryClaimsPanel } from '../components/commissioner/InjuryClaimsPanel';
 import { KeeperLineagePreview } from '../components/commissioner/KeeperLineagePreview';
+import { OverridesPanel } from '../components/commissioner/OverridesPanel';
 import type { League, Season } from '../types/database';
 
 const TABS = [
@@ -17,6 +18,7 @@ const TABS = [
   'Draft Picks',
   'Injury Claims',
   'Keeper Preview',
+  'Overrides',
 ] as const;
 type Tab = (typeof TABS)[number];
 
@@ -72,6 +74,7 @@ export function CommissionerDashboard() {
           {tab === 'Keeper Preview' && activeSeason && (
             <KeeperLineagePreview season={activeSeason} />
           )}
+          {tab === 'Overrides' && activeSeason && <OverridesPanel season={activeSeason} />}
           {tab !== 'Seasons' && tab !== 'Players' && !activeSeason && (
             <p>Select a season on the Seasons tab first.</p>
           )}

@@ -12,6 +12,11 @@ export function ManagersPanel({ league, season }: Props) {
   const [managerSeasons, setManagerSeasons] = useState<ManagerSeason[]>([]);
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
+  const [passwordManagerId, setPasswordManagerId] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordSetFor, setPasswordSetFor] = useState<string | null>(null);
 
   async function load() {
     const { data: mgrs } = await supabase
@@ -68,6 +73,34 @@ export function ManagersPanel({ league, season }: Props) {
     load();
   }
 
+  function startSetPassword(managerId: string) {
+    setPasswordManagerId(managerId);
+    setNewPassword('');
+    setPasswordError(null);
+    setPasswordSetFor(null);
+  }
+
+  async function submitPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!passwordManagerId) return;
+    setPasswordError(null);
+    setPasswordSaving(true);
+    const { data, error } = await supabase.functions.invoke('set-manager-password', {
+      body: { manager_id: passwordManagerId, password: newPassword },
+    });
+    setPasswordSaving(false);
+    if (error || (data && 'error' in data)) {
+      setPasswordError(
+        (data && 'error' in data && (data as { error: string }).error) ||
+          (error instanceof Error ? error.message : 'Could not set password'),
+      );
+      return;
+    }
+    setPasswordSetFor(passwordManagerId);
+    setPasswordManagerId(null);
+    setNewPassword('');
+  }
+
   return (
     <section>
       <h2>Managers</h2>
@@ -93,6 +126,7 @@ export function ManagersPanel({ league, season }: Props) {
             <th>Email</th>
             <th>Team name ({season.year})</th>
             <th>In this season</th>
+            <th>Password</th>
           </tr>
         </thead>
         <tbody>
@@ -121,6 +155,32 @@ export function ManagersPanel({ league, season }: Props) {
                     )
                   ) : (
                     <button onClick={() => joinSeason(m)}>Add to season</button>
+                  )}
+                </td>
+                <td>
+                  {passwordManagerId === m.id ? (
+                    <form onSubmit={submitPassword} className="inline-form">
+                      <input
+                        type="password"
+                        required
+                        minLength={8}
+                        placeholder="Temporary password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                      />
+                      <button type="submit" disabled={passwordSaving}>
+                        {passwordSaving ? 'Saving...' : 'Save'}
+                      </button>
+                      <button type="button" onClick={() => setPasswordManagerId(null)}>
+                        Cancel
+                      </button>
+                      {passwordError && <p className="error">{passwordError}</p>}
+                    </form>
+                  ) : (
+                    <>
+                      <button onClick={() => startSetPassword(m.id)}>Set password</button>
+                      {passwordSetFor === m.id && <span> Password set.</span>}
+                    </>
                   )}
                 </td>
               </tr>
