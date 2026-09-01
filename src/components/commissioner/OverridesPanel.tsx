@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import type {
   CommissionerOverride,
+  KeeperLineage,
   KeeperSelectionPick,
   ManagerSeason,
   OverrideReason,
@@ -19,21 +20,22 @@ export function OverridesPanel({ season }: Props) {
   const [picks, setPicks] = useState<KeeperSelectionPick[]>([]);
   const [managerSeasons, setManagerSeasons] = useState<ManagerSeason[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [lineage, setLineage] = useState<KeeperLineage[]>([]);
   const [overrides, setOverrides] = useState<CommissionerOverride[]>([]);
 
   const [pickId, setPickId] = useState('');
   const [newPlayerId, setNewPlayerId] = useState('');
-  const [newSlotRound, setNewSlotRound] = useState(1);
   const [reason, setReason] = useState<OverrideReason>('injury');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function load() {
-    const [{ data: finalized }, { data: ms }, { data: pl }, { data: ov }] = await Promise.all([
+    const [{ data: finalized }, { data: ms }, { data: pl }, { data: lin }, { data: ov }] = await Promise.all([
       supabase.from('keeper_selections').select('*').eq('season_id', season.id).eq('status', 'finalized'),
       supabase.from('manager_seasons').select('*').eq('season_id', season.id),
       supabase.from('players').select('*').order('full_name'),
+      supabase.from('keeper_lineage').select('*').eq('season_id', season.id),
       supabase
         .from('commissioner_overrides')
         .select('*')
@@ -42,6 +44,7 @@ export function OverridesPanel({ season }: Props) {
     ]);
     setManagerSeasons(ms ?? []);
     setPlayers(pl ?? []);
+    setLineage((lin ?? []) as KeeperLineage[]);
     setOverrides((ov ?? []) as CommissionerOverride[]);
 
     const finalizedIds = (finalized ?? []).map((s) => s.id);
@@ -61,6 +64,10 @@ export function OverridesPanel({ season }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [season.id]);
 
+  useEffect(() => {
+    setNewPlayerId('');
+  }, [pickId]);
+
   function teamName(managerSeasonId: string) {
     return managerSeasons.find((ms) => ms.id === managerSeasonId)?.team_name ?? '?';
   }
@@ -70,14 +77,28 @@ export function OverridesPanel({ season }: Props) {
 
   const selectedPick = picks.find((p) => p.id === pickId);
 
+  // Only offer players actually on this manager's roster this season (via
+  // keeper_lineage), excluding the player currently in the pick being replaced.
+  const rosterPlayers = selectedPick
+    ? players.filter((p) =>
+        lineage.some(
+          (l) =>
+            l.manager_season_id === selectedPick.manager_season_id &&
+            l.player_id === p.id &&
+            p.id !== selectedPick.player_id,
+        ),
+      )
+    : [];
+
   async function submitOverride(e: React.FormEvent) {
     e.preventDefault();
+    if (!selectedPick) return;
     setError(null);
     setSubmitting(true);
     const { error: rpcErr } = await supabase.rpc('commissioner_override_pick', {
       p_pick_id: pickId,
       p_new_player_id: newPlayerId,
-      p_new_slot_round: newSlotRound,
+      p_new_slot_round: selectedPick.slot_round,
       p_reason: reason,
       p_notes: notes || null,
     });
@@ -125,24 +146,19 @@ export function OverridesPanel({ season }: Props) {
           <select
             id="ov-new-player"
             required
+            disabled={!selectedPick}
             value={newPlayerId}
             onChange={(e) => setNewPlayerId(e.target.value)}
           >
-            <option value="">Select player</option>
-            {players.map((p) => (
+            <option value="">{selectedPick ? 'Select player' : 'Select a pick first'}</option>
+            {rosterPlayers.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.full_name}
               </option>
             ))}
           </select>
-          <label htmlFor="ov-round">New round</label>
-          <input
-            id="ov-round"
-            type="number"
-            min={1}
-            value={newSlotRound}
-            onChange={(e) => setNewSlotRound(Number(e.target.value))}
-          />
+          <label htmlFor="ov-round">Round</label>
+          <input id="ov-round" type="text" readOnly value={selectedPick ? selectedPick.slot_round : ''} />
           <label htmlFor="ov-notes">Notes</label>
           <input id="ov-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="optional" />
           <button type="submit" disabled={submitting || !selectedPick}>
