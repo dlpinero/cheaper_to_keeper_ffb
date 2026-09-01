@@ -24,9 +24,13 @@ interface PreviewRow {
   usesInjuryExemptionSlot: boolean;
 }
 
+type SortKey = 'team' | 'round';
+
 export function KeeperLineagePreview({ season }: Props) {
   const [rows, setRows] = useState<PreviewRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortKey, setSortKey] = useState<SortKey>('team');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     load();
@@ -103,6 +107,30 @@ export function KeeperLineagePreview({ season }: Props) {
     setLoading(false);
   }
 
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  }
+
+  function sortArrow(key: SortKey) {
+    if (sortKey !== key) return '';
+    return sortDir === 'asc' ? ' ▲' : ' ▼';
+  }
+
+  const sortedRows = [...rows].sort((a, b) => {
+    let cmp = 0;
+    if (sortKey === 'round') {
+      cmp = (a.nextRound ?? Infinity) - (b.nextRound ?? Infinity) || a.currentRound - b.currentRound;
+    } else {
+      cmp = a.teamName.localeCompare(b.teamName) || a.playerName.localeCompare(b.playerName);
+    }
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
   return (
     <section>
       <h2>Keeper preview for next season (read-only)</h2>
@@ -118,22 +146,26 @@ export function KeeperLineagePreview({ season }: Props) {
         <table>
           <thead>
             <tr>
-              <th>Team</th>
+              <th onClick={() => toggleSort('team')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                Team{sortArrow('team')}
+              </th>
               <th>Player</th>
-              <th>Current round</th>
+              <th onClick={() => toggleSort('round')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                {season.year + 1} round if kept{sortArrow('round')}
+              </th>
               <th>Keeper-eligible next year?</th>
-              <th>Next round</th>
+              <th>{season.year} round</th>
               <th>Uses injury exemption</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {sortedRows.map((r) => (
               <tr key={r.playerId}>
                 <td>{r.teamName}</td>
                 <td>{r.playerName}</td>
-                <td>{r.currentRound}</td>
-                <td>{r.eligible ? 'Yes' : `No (${r.ineligibleReason})`}</td>
                 <td>{r.eligible ? r.nextRound : '—'}</td>
+                <td>{r.eligible ? 'Yes' : `No (${r.ineligibleReason})`}</td>
+                <td>{r.currentRound}</td>
                 <td>{r.eligible && r.usesInjuryExemptionSlot ? 'Yes' : ''}</td>
               </tr>
             ))}
