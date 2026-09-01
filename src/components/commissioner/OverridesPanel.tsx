@@ -90,15 +90,23 @@ export function OverridesPanel({ season }: Props) {
       )
     : [];
 
+  // The replacement's own round comes from his own lineage entry — the round he
+  // occupies is a property of that player, not of the pick he's being swapped into.
+  const replacementRound = selectedPick
+    ? lineage.find(
+        (l) => l.manager_season_id === selectedPick.manager_season_id && l.player_id === newPlayerId,
+      )?.slot_round
+    : undefined;
+
   async function submitOverride(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedPick) return;
+    if (!selectedPick || replacementRound === undefined) return;
     setError(null);
     setSubmitting(true);
     const { error: rpcErr } = await supabase.rpc('commissioner_override_pick', {
       p_pick_id: pickId,
       p_new_player_id: newPlayerId,
-      p_new_slot_round: selectedPick.slot_round,
+      p_new_slot_round: replacementRound,
       p_reason: reason,
       p_notes: notes || null,
     });
@@ -153,7 +161,7 @@ export function OverridesPanel({ season }: Props) {
             ))}
           </select>
           <label htmlFor="ov-round">Replacement player's round</label>
-          <input id="ov-round" type="text" readOnly value={selectedPick ? selectedPick.slot_round : ''} />
+          <input id="ov-round" type="text" readOnly value={replacementRound ?? ''} />
 
           <div style={{ flexBasis: '100%', height: 0 }} />
 
@@ -167,7 +175,7 @@ export function OverridesPanel({ season }: Props) {
           </select>
           <label htmlFor="ov-notes">Notes</label>
           <input id="ov-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="optional" />
-          <button type="submit" disabled={submitting || !selectedPick}>
+          <button type="submit" disabled={submitting || !selectedPick || replacementRound === undefined}>
             Apply override
           </button>
         </form>
