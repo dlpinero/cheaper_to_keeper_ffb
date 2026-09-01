@@ -134,14 +134,9 @@ export function OverridesPanel({ season }: Props) {
               </option>
             ))}
           </select>
-          <label htmlFor="ov-reason">Reason</label>
-          <select id="ov-reason" value={reason} onChange={(e) => setReason(e.target.value as OverrideReason)}>
-            {REASONS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
+
+          <div style={{ flexBasis: '100%', height: 0 }} />
+
           <label htmlFor="ov-new-player">Replacement player</label>
           <select
             id="ov-new-player"
@@ -157,8 +152,19 @@ export function OverridesPanel({ season }: Props) {
               </option>
             ))}
           </select>
-          <label htmlFor="ov-round">Round</label>
+          <label htmlFor="ov-round">Replacement player's round</label>
           <input id="ov-round" type="text" readOnly value={selectedPick ? selectedPick.slot_round : ''} />
+
+          <div style={{ flexBasis: '100%', height: 0 }} />
+
+          <label htmlFor="ov-reason">Reason</label>
+          <select id="ov-reason" value={reason} onChange={(e) => setReason(e.target.value as OverrideReason)}>
+            {REASONS.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
           <label htmlFor="ov-notes">Notes</label>
           <input id="ov-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="optional" />
           <button type="submit" disabled={submitting || !selectedPick}>
