@@ -3,6 +3,7 @@ import { useAuth } from '../lib/AuthContext';
 import { signOut } from '../lib/auth';
 import { supabase } from '../lib/supabaseClient';
 import { KeeperPortal } from '../components/manager/KeeperPortal';
+import { InjuryExemptionRequest } from '../components/manager/InjuryExemptionRequest';
 import type { ManagerSeason, Season } from '../types/database';
 
 export function ManagerDashboard() {
@@ -59,8 +60,11 @@ export function ManagerDashboard() {
 
       {loading ? (
         <p>Loading...</p>
-      ) : season && managerSeason ? (
-        <KeeperPortal season={season} managerSeason={managerSeason} />
+      ) : season && managerSeason && manager ? (
+        <>
+          <InjuryExemptionRequest season={season} managerSeason={managerSeason} managerId={manager.id} />
+          <KeeperPortal season={season} managerSeason={managerSeason} />
+        </>
       ) : (
         <p>
           Keeper selections aren't open right now. Check back once the commissioner opens the
