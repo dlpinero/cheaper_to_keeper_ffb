@@ -6,6 +6,8 @@ interface Props {
   season: Season;
 }
 
+type SortKey = 'overall' | 'round' | 'team';
+
 export function DraftPicksPanel({ season }: Props) {
   const [picks, setPicks] = useState<DraftPick[]>([]);
   const [managerSeasons, setManagerSeasons] = useState<ManagerSeason[]>([]);
@@ -17,6 +19,8 @@ export function DraftPicksPanel({ season }: Props) {
   const [pickInRound, setPickInRound] = useState(1);
   const [isKeeperPick, setIsKeeperPick] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>('overall');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   async function load() {
     const [{ data: p }, { data: ms }, { data: pl }] = await Promise.all([
@@ -98,6 +102,32 @@ export function DraftPicksPanel({ season }: Props) {
     return players.find((p) => p.id === playerId)?.full_name ?? '?';
   }
 
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  }
+
+  function sortArrow(key: SortKey) {
+    if (sortKey !== key) return '';
+    return sortDir === 'asc' ? ' ▲' : ' ▼';
+  }
+
+  const sortedPicks = [...picks].sort((a, b) => {
+    let cmp = 0;
+    if (sortKey === 'round') {
+      cmp = a.round - b.round || a.pick_in_round - b.pick_in_round;
+    } else if (sortKey === 'team') {
+      cmp = teamName(a.manager_season_id).localeCompare(teamName(b.manager_season_id)) || a.overall_pick - b.overall_pick;
+    } else {
+      cmp = a.overall_pick - b.overall_pick;
+    }
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
   return (
     <section>
       <h2>Draft Picks — {season.year}</h2>
@@ -156,17 +186,23 @@ export function DraftPicksPanel({ season }: Props) {
       <table>
         <thead>
           <tr>
-            <th>Overall</th>
-            <th>Round</th>
+            <th onClick={() => toggleSort('overall')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+              Overall{sortArrow('overall')}
+            </th>
+            <th onClick={() => toggleSort('round')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+              Round{sortArrow('round')}
+            </th>
             <th>Pick</th>
-            <th>Team</th>
+            <th onClick={() => toggleSort('team')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+              Team{sortArrow('team')}
+            </th>
             <th>Player</th>
             <th>Keeper?</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {picks.map((pick) => (
+          {sortedPicks.map((pick) => (
             <tr key={pick.id}>
               <td>{pick.overall_pick}</td>
               <td>{pick.round}</td>
