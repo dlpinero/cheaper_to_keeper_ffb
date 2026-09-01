@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import type {
   InjuryExemptionClaim,
+  KeeperLineage,
   ManagerSeason,
   Player,
   PlayerSeason,
@@ -17,6 +18,7 @@ export function InjuryClaimsPanel({ season }: Props) {
   const [claims, setClaims] = useState<InjuryExemptionClaim[]>([]);
   const [managerSeasons, setManagerSeasons] = useState<ManagerSeason[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [lineage, setLineage] = useState<KeeperLineage[]>([]);
 
   const [managerSeasonId, setManagerSeasonId] = useState('');
   const [playerId, setPlayerId] = useState('');
@@ -24,22 +26,28 @@ export function InjuryClaimsPanel({ season }: Props) {
   const [continuityEligible, setContinuityEligible] = useState(true);
 
   async function load() {
-    const [{ data: ps }, { data: c }, { data: ms }, { data: pl }] = await Promise.all([
+    const [{ data: ps }, { data: c }, { data: ms }, { data: pl }, { data: lin }] = await Promise.all([
       supabase.from('player_seasons').select('*').eq('season_id', season.id),
       supabase.from('injury_exemption_claims').select('*').eq('season_id', season.id),
       supabase.from('manager_seasons').select('*').eq('season_id', season.id).eq('is_active', true),
       supabase.from('players').select('*').order('full_name'),
+      supabase.from('keeper_lineage').select('*').eq('season_id', season.id),
     ]);
     setPlayerSeasons(ps ?? []);
     setClaims(c ?? []);
     setManagerSeasons(ms ?? []);
     setPlayers(pl ?? []);
+    setLineage((lin ?? []) as KeeperLineage[]);
   }
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [season.id]);
+
+  useEffect(() => {
+    setPlayerId('');
+  }, [managerSeasonId]);
 
   async function upsertPlayerSeason(e: React.FormEvent) {
     e.preventDefault();
@@ -94,6 +102,13 @@ export function InjuryClaimsPanel({ season }: Props) {
     return players.find((p) => p.id === playerId)?.full_name ?? '?';
   }
 
+  // Only offer players actually on the selected team's roster this season, via keeper_lineage.
+  const rosterPlayers = managerSeasonId
+    ? players.filter((p) =>
+        lineage.some((l) => l.manager_season_id === managerSeasonId && l.player_id === p.id),
+      )
+    : [];
+
   return (
     <section>
       <h2>Roster continuity &amp; injury data — {season.year}</h2>
@@ -113,9 +128,15 @@ export function InjuryClaimsPanel({ season }: Props) {
           ))}
         </select>
         <label htmlFor="ps-player">Player</label>
-        <select id="ps-player" required value={playerId} onChange={(e) => setPlayerId(e.target.value)}>
-          <option value="">Select player</option>
-          {players.map((p) => (
+        <select
+          id="ps-player"
+          required
+          disabled={!managerSeasonId}
+          value={playerId}
+          onChange={(e) => setPlayerId(e.target.value)}
+        >
+          <option value="">{managerSeasonId ? 'Select player' : 'Select a team first'}</option>
+          {rosterPlayers.map((p) => (
             <option key={p.id} value={p.id}>
               {p.full_name}
             </option>
