@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { computeKeeperOption } from '../index';
 import { qualifiesForInjuryExemption } from '../injuryExemption';
 import { validateKeeperSelection } from '../validateSelection';
 import type { SelectionPick } from '../validateSelection';
+import type { LineageEntry } from '../types';
 
 describe('rule 6: injury exemption', () => {
   it('qualifies at exactly 8 games missed, not below', () => {
@@ -57,5 +59,44 @@ describe('rule 6: injury exemption', () => {
     const result = validateKeeperSelection(picks);
     expect(result.valid).toBe(false);
     expect(result.errors.join()).toMatch(/cannot keep more than 3/i);
+  });
+
+  it('a round 4+ exemption freezes the round for one year, then escalation resumes next year off that round', () => {
+    const draftedRound4: LineageEntry = {
+      playerId: 'x',
+      seasonYear: 2025,
+      slotRound: 4,
+      origin: 'drafted',
+      lockedForever: false,
+    };
+
+    // 2025 season: 9 games missed, exemption approved -> 2026 slot is frozen at round 4,
+    // not escalated to round 3.
+    const kept2026 = computeKeeperOption(
+      { playerId: 'x', history: [draftedRound4] },
+      { rosterContinuityEligible: true, gamesMissed: 9, injuryExemptionApproved: true },
+    );
+    expect(kept2026.eligible).toBe(true);
+    expect(kept2026.keeperSlotRound).toBe(4);
+    expect(kept2026.usesInjuryExemptionSlot).toBe(true);
+    expect(kept2026.lockedForever).toBe(false);
+
+    const lineage2026: LineageEntry = {
+      playerId: 'x',
+      seasonYear: 2026,
+      slotRound: 4,
+      origin: 'kept_injury_exempt',
+      lockedForever: false,
+    };
+
+    // 2026 season: no games missed, no exemption -> 2027 escalates normally off the frozen
+    // round 4 (rule 4/5 bracket), landing on round 3.
+    const kept2027 = computeKeeperOption(
+      { playerId: 'x', history: [draftedRound4, lineage2026] },
+      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+    );
+    expect(kept2027.eligible).toBe(true);
+    expect(kept2027.keeperSlotRound).toBe(3);
+    expect(kept2027.usesInjuryExemptionSlot).toBe(false);
   });
 });

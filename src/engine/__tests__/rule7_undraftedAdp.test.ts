@@ -13,6 +13,26 @@ describe('rule 7: undrafted players', () => {
     expect(result.lockedForever).toBe(false);
   });
 
+  it('caps the slot at round 16 — the draft has no rounds beyond that', () => {
+    const eligibility = { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false };
+    expect(
+      computeKeeperOption({ playerId: 'p1', history: [], adpRoundForNextDraft: 16 }, eligibility)
+        .keeperSlotRound,
+    ).toBe(16);
+    expect(
+      computeKeeperOption({ playerId: 'p1', history: [], adpRoundForNextDraft: 15 }, eligibility)
+        .keeperSlotRound,
+    ).toBe(16);
+    expect(
+      computeKeeperOption({ playerId: 'p1', history: [], adpRoundForNextDraft: 14 }, eligibility)
+        .keeperSlotRound,
+    ).toBe(16);
+    expect(
+      computeKeeperOption({ playerId: 'p1', history: [], adpRoundForNextDraft: 13 }, eligibility)
+        .keeperSlotRound,
+    ).toBe(15);
+  });
+
   it('is ineligible with no lineage and no ADP (never drafted, no ADP data)', () => {
     const result = computeKeeperOption(
       { playerId: 'p1', history: [] },
@@ -35,10 +55,9 @@ describe('rule 7: undrafted players', () => {
       { playerId: 'p1', history: [keptFromAdp], adpRoundForNextDraft: 1 },
       { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
     );
-    // Round 4 -> escalates to 3 and locks (rule 9 floor), NOT re-derived from ADP (1 + 2 = 3
-    // would coincidentally match here, so this also covers the "history takes priority" case
-    // via the lockedForever flag it produces).
+    // Round 4 -> escalates to 3, NOT re-derived from ADP (1 + 2 = 3 would coincidentally
+    // match here anyway).
     expect(result.keeperSlotRound).toBe(3);
-    expect(result.lockedForever).toBe(true);
+    expect(result.lockedForever).toBe(false);
   });
 });

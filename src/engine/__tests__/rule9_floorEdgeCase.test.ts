@@ -1,21 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { defaultFloorRule } from '../escalation';
 import { computeKeeperOption } from '../index';
-import type { FloorRule, LineageEntry } from '../types';
+import type { LineageEntry } from '../types';
 
-// Rule 9 is a FLAGGED ASSUMPTION, not directly confirmed by the user: when normal escalation
-// (rules 4/5) computes a round <= 3, this engine locks it there permanently rather than
-// continuing to escalate below round 3 in future years. If that assumption turns out to be
-// wrong, only defaultFloorRule.apply needs to change — every caller is already parameterized
-// on FloorRule.
-describe('rule 9: escalation floor (flagged assumption)', () => {
-  it('default floor rule locks at round 3 once escalation would go at or below it', () => {
-    expect(defaultFloorRule.apply(3)).toEqual({ round: 3, locked: true });
-    expect(defaultFloorRule.apply(2)).toEqual({ round: 3, locked: true });
-    expect(defaultFloorRule.apply(4)).toEqual({ round: 4, locked: false });
-  });
-
-  it('a round 4 keeper escalates to round 3 and locks there', () => {
+// Confirmed by the user: once ordinary escalation (rules 4/5) computes a round of exactly 3,
+// that keeper is eligible at round 3 for that year with no exemption needed — but starting the
+// *following* year, that round-3 slot falls under rule 3's rounds-1-3 rules, same as any other
+// rounds 1-3 pick: requalify for the injury exemption every year, or it's not a keeper option
+// that year. There is no permanent "floor lock" — this is just rule 3 applying naturally once
+// the reference round reaches 3.
+describe('rule 9 (superseded): escalating into round 3', () => {
+  it('a round 4 keeper escalates to round 3 with no exemption needed for that transition', () => {
     const entry: LineageEntry = {
       playerId: 'p1',
       seasonYear: 2026,
@@ -25,46 +19,37 @@ describe('rule 9: escalation floor (flagged assumption)', () => {
     };
     const result = computeKeeperOption(
       { playerId: 'p1', history: [entry] },
-      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
-    );
-    expect(result.keeperSlotRound).toBe(3);
-    expect(result.lockedForever).toBe(true);
-  });
-
-  it('once floor-locked, stays at round 3 forever and does not need the injury exemption', () => {
-    const flooredEntry: LineageEntry = {
-      playerId: 'p1',
-      seasonYear: 2027,
-      slotRound: 3,
-      origin: 'kept_normal',
-      lockedForever: true,
-    };
-    const result = computeKeeperOption(
-      { playerId: 'p1', history: [flooredEntry] },
       { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
     );
     expect(result.eligible).toBe(true);
     expect(result.keeperSlotRound).toBe(3);
-    // Unlike a rounds-1-3 injury lock, a floor lock reached via ordinary rules 4/7 escalation
-    // never required the exemption, so it must not silently consume the exemption cap slot.
     expect(result.usesInjuryExemptionSlot).toBe(false);
+    expect(result.lockedForever).toBe(false);
   });
 
-  it('the floor rule is injectable, so an alternative policy can be swapped in without touching callers', () => {
-    const noFloor: FloorRule = { apply: (round) => ({ round, locked: false }) };
-    const entry: LineageEntry = {
+  it('the following year, that round-3 slot requires the injury exemption like any rounds 1-3 pick', () => {
+    const atRoundThree: LineageEntry = {
       playerId: 'p1',
-      seasonYear: 2026,
-      slotRound: 4,
+      seasonYear: 2027,
+      slotRound: 3,
       origin: 'kept_normal',
       lockedForever: false,
     };
-    const result = computeKeeperOption(
-      { playerId: 'p1', history: [entry] },
+
+    const withoutExemption = computeKeeperOption(
+      { playerId: 'p1', history: [atRoundThree] },
       { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
-      noFloor,
     );
-    expect(result.keeperSlotRound).toBe(3);
-    expect(result.lockedForever).toBe(false);
+    expect(withoutExemption.eligible).toBe(false);
+    expect(withoutExemption.ineligibleReason).toBe('rounds_1_3_not_exempt');
+
+    const withExemption = computeKeeperOption(
+      { playerId: 'p1', history: [atRoundThree] },
+      { rosterContinuityEligible: true, gamesMissed: 9, injuryExemptionApproved: true },
+    );
+    expect(withExemption.eligible).toBe(true);
+    expect(withExemption.keeperSlotRound).toBe(3);
+    expect(withExemption.usesInjuryExemptionSlot).toBe(true);
+    expect(withExemption.lockedForever).toBe(false);
   });
 });

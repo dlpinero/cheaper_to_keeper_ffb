@@ -6,7 +6,9 @@ export interface LineageEntry {
   seasonYear: number;
   slotRound: number;
   origin: KeeperOrigin;
-  /** True once a round is frozen forever (rounds 1-3 injury lock, or the rule-9 escalation floor). */
+  /** Always false — kept only for backward-compat with existing rows/UI. Nothing in the
+   *  ruleset locks a round permanently: rounds 1-3 (however reached) require requalifying for
+   *  the injury exemption every year, and round 4+ escalation never stops on its own. */
   lockedForever: boolean;
 }
 
@@ -28,11 +30,6 @@ export interface KeeperOption {
   keeperSlotRound: number | null;
   usesInjuryExemptionSlot: boolean;
   lockedForever: boolean;
-}
-
-/** Isolates the rule-9 floor assumption so it's a one-line swap if the assumption is wrong. */
-export interface FloorRule {
-  apply(round: number): { round: number; locked: boolean };
 }
 
 export interface KeeperCandidateInput {

@@ -1,9 +1,12 @@
 import { getReferenceLineageEntry } from './referenceRound';
 import { isRosterContinuityEligible } from './rosterContinuity';
 import { requiresInjuryExemption } from './rounds1to3Exemption';
-import { escalateRound, defaultFloorRule } from './escalation';
+import { escalateRound } from './escalation';
 import { qualifiesForInjuryExemption } from './injuryExemption';
-import type { EligibilityInput, FloorRule, KeeperCandidateInput, KeeperOption } from './types';
+import type { EligibilityInput, KeeperCandidateInput, KeeperOption } from './types';
+
+/** The draft only has 16 rounds — rule 7's ADP + 2 can't produce a round beyond that. */
+const MAX_DRAFT_ROUND = 16;
 
 function ineligible(
   playerId: string,
@@ -22,7 +25,6 @@ function ineligible(
 export function computeKeeperOption(
   input: KeeperCandidateInput,
   eligibility: EligibilityInput,
-  floorRule: FloorRule = defaultFloorRule,
 ): KeeperOption {
   if (!isRosterContinuityEligible(eligibility)) {
     return ineligible(input.playerId, 'not_roster_continuous');
@@ -33,21 +35,13 @@ export function computeKeeperOption(
 
   const reference = getReferenceLineageEntry(input.history);
 
-  // Already locked (rounds 1-3 injury lock, or a prior escalation-floor lock) — the round is
-  // frozen forever and does not require re-qualifying for the exemption each year.
-  if (reference?.lockedForever) {
-    return {
-      playerId: input.playerId,
-      eligible: true,
-      keeperSlotRound: reference.slotRound,
-      usesInjuryExemptionSlot: reference.origin === 'kept_injury_exempt',
-      lockedForever: true,
-    };
-  }
-
   if (reference) {
     const referenceRound = reference.slotRound;
 
+    // Rule 3: a round <= 3 — whether an original draft pick, a prior exemption keep, or
+    // reached via ordinary escalation compounding (rule 4/5) down to round 3 — requires
+    // requalifying for the injury exemption every single year. The exemption never carries
+    // forward, so this is never a one-time unlock and there is no permanent lock.
     if (requiresInjuryExemption(referenceRound)) {
       if (!exemptionQualifies) {
         return ineligible(input.playerId, 'rounds_1_3_not_exempt');
@@ -57,29 +51,39 @@ export function computeKeeperOption(
         eligible: true,
         keeperSlotRound: referenceRound,
         usesInjuryExemptionSlot: true,
-        lockedForever: true,
+        lockedForever: false,
       };
     }
 
-    const floored = floorRule.apply(escalateRound(referenceRound));
+    // Rule 6: an approved injury exemption freezes the round for this keeper year only —
+    // escalation resumes normally next year off this same round as the new reference.
+    if (exemptionQualifies) {
+      return {
+        playerId: input.playerId,
+        eligible: true,
+        keeperSlotRound: referenceRound,
+        usesInjuryExemptionSlot: true,
+        lockedForever: false,
+      };
+    }
+
     return {
       playerId: input.playerId,
       eligible: true,
-      keeperSlotRound: floored.round,
-      usesInjuryExemptionSlot: exemptionQualifies,
-      lockedForever: floored.locked,
+      keeperSlotRound: escalateRound(referenceRound),
+      usesInjuryExemptionSlot: false,
+      lockedForever: false,
     };
   }
 
   // Undrafted player (rule 7) — no lineage yet, slot off next draft's ADP instead.
   if (input.adpRoundForNextDraft !== undefined) {
-    const floored = floorRule.apply(input.adpRoundForNextDraft + 2);
     return {
       playerId: input.playerId,
       eligible: true,
-      keeperSlotRound: floored.round,
+      keeperSlotRound: Math.min(input.adpRoundForNextDraft + 2, MAX_DRAFT_ROUND),
       usesInjuryExemptionSlot: exemptionQualifies,
-      lockedForever: floored.locked,
+      lockedForever: false,
     };
   }
 
@@ -90,7 +94,7 @@ export * from './types';
 export { getReferenceLineageEntry } from './referenceRound';
 export { isRosterContinuityEligible } from './rosterContinuity';
 export { requiresInjuryExemption, EXEMPT_ROUNDS_MAX } from './rounds1to3Exemption';
-export { escalateRound, defaultFloorRule } from './escalation';
+export { escalateRound } from './escalation';
 export { qualifiesForInjuryExemption, INJURY_EXEMPTION_MIN_GAMES_MISSED } from './injuryExemption';
 export {
   validateKeeperSelection,

@@ -29,7 +29,7 @@ describe('rule 3: rounds 1-3 exemption', () => {
     expect(result.ineligibleReason).toBe('rounds_1_3_not_exempt');
   });
 
-  it('worked example: round 1 pick in 2025, missed 9 games, kept round 1 in 2026', () => {
+  it('worked example: round 1 pick in 2025, missed 9 games, kept round 1 in 2026 (not a permanent lock)', () => {
     const result = computeKeeperOption(
       { playerId: 'p1', history: [round1Draft] },
       { rosterContinuityEligible: true, gamesMissed: 9, injuryExemptionApproved: true },
@@ -37,25 +37,41 @@ describe('rule 3: rounds 1-3 exemption', () => {
     expect(result.eligible).toBe(true);
     expect(result.keeperSlotRound).toBe(1);
     expect(result.usesInjuryExemptionSlot).toBe(true);
-    expect(result.lockedForever).toBe(true);
+    expect(result.lockedForever).toBe(false);
   });
 
-  it('stays locked at round 1 the following year without re-qualifying for the exemption', () => {
-    const lockedRound1: LineageEntry = {
+  it('stays at round 1 the following year only by requalifying for the exemption again', () => {
+    const keptRound1: LineageEntry = {
       playerId: 'p1',
       seasonYear: 2026,
       slotRound: 1,
       origin: 'kept_injury_exempt',
-      lockedForever: true,
+      lockedForever: false,
     };
     const result = computeKeeperOption(
-      { playerId: 'p1', history: [round1Draft, lockedRound1] },
-      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+      { playerId: 'p1', history: [round1Draft, keptRound1] },
+      { rosterContinuityEligible: true, gamesMissed: 9, injuryExemptionApproved: true },
     );
     expect(result.eligible).toBe(true);
     expect(result.keeperSlotRound).toBe(1);
     expect(result.usesInjuryExemptionSlot).toBe(true);
-    expect(result.lockedForever).toBe(true);
+    expect(result.lockedForever).toBe(false);
+  });
+
+  it('becomes ineligible the following year without a fresh exemption — the exemption never carries forward', () => {
+    const keptRound1: LineageEntry = {
+      playerId: 'p1',
+      seasonYear: 2026,
+      slotRound: 1,
+      origin: 'kept_injury_exempt',
+      lockedForever: false,
+    };
+    const result = computeKeeperOption(
+      { playerId: 'p1', history: [round1Draft, keptRound1] },
+      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+    );
+    expect(result.eligible).toBe(false);
+    expect(result.ineligibleReason).toBe('rounds_1_3_not_exempt');
   });
 
   it('round 2 and round 3 picks require the exemption too', () => {
