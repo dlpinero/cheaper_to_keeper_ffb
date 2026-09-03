@@ -12,6 +12,7 @@ export function ManagersPanel({ league, season }: Props) {
   const [managerSeasons, setManagerSeasons] = useState<ManagerSeason[]>([]);
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [passwordManagerId, setPasswordManagerId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -40,36 +41,57 @@ export function ManagersPanel({ league, season }: Props) {
 
   async function addManager(e: React.FormEvent) {
     e.preventDefault();
-    const { error } = await supabase
+    setError(null);
+    const { error: insertErr } = await supabase
       .from('managers')
       .insert({ league_id: league.id, display_name: displayName, email, role: 'manager' });
-    if (!error) {
-      setDisplayName('');
-      setEmail('');
-      load();
+    if (insertErr) {
+      setError(insertErr.message);
+      return;
     }
+    setDisplayName('');
+    setEmail('');
+    load();
   }
 
   async function joinSeason(manager: Manager) {
-    const { error } = await supabase.from('manager_seasons').insert({
+    setError(null);
+    const { error: insertErr } = await supabase.from('manager_seasons').insert({
       manager_id: manager.id,
       season_id: season.id,
       team_name: manager.display_name,
       is_active: true,
     });
-    if (!error) load();
+    if (insertErr) {
+      setError(insertErr.message);
+      return;
+    }
+    load();
   }
 
   async function leaveSeason(managerSeason: ManagerSeason) {
-    await supabase
+    setError(null);
+    const { error: updateErr } = await supabase
       .from('manager_seasons')
       .update({ is_active: false, left_at: new Date().toISOString() })
       .eq('id', managerSeason.id);
+    if (updateErr) {
+      setError(updateErr.message);
+      return;
+    }
     load();
   }
 
   async function updateTeamName(managerSeason: ManagerSeason, teamName: string) {
-    await supabase.from('manager_seasons').update({ team_name: teamName }).eq('id', managerSeason.id);
+    setError(null);
+    const { error: updateErr } = await supabase
+      .from('manager_seasons')
+      .update({ team_name: teamName })
+      .eq('id', managerSeason.id);
+    if (updateErr) {
+      setError(updateErr.message);
+      return;
+    }
     load();
   }
 
@@ -117,6 +139,7 @@ export function ManagersPanel({ league, season }: Props) {
         />
         <button type="submit">Add manager to league</button>
       </form>
+      {error && <p className="error">{error}</p>}
 
       <h3>Roster for {season.year}</h3>
       <table>

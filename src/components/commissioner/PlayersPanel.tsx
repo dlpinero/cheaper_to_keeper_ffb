@@ -8,6 +8,7 @@ export function PlayersPanel() {
   const [nflTeam, setNflTeam] = useState('');
   const [position, setPosition] = useState('');
   const [search, setSearch] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   async function load() {
     const { data } = await supabase.from('players').select('*').order('full_name');
@@ -20,15 +21,18 @@ export function PlayersPanel() {
 
   async function addPlayer(e: React.FormEvent) {
     e.preventDefault();
-    const { error } = await supabase
+    setError(null);
+    const { error: insertErr } = await supabase
       .from('players')
       .insert({ full_name: fullName, nfl_team: nflTeam || null, position: position || null });
-    if (!error) {
-      setFullName('');
-      setNflTeam('');
-      setPosition('');
-      load();
+    if (insertErr) {
+      setError(insertErr.message);
+      return;
     }
+    setFullName('');
+    setNflTeam('');
+    setPosition('');
+    load();
   }
 
   const filtered = players.filter((p) =>
@@ -47,6 +51,7 @@ export function PlayersPanel() {
         <input id="p-pos" value={position} onChange={(e) => setPosition(e.target.value)} />
         <button type="submit">Add player</button>
       </form>
+      {error && <p className="error">{error}</p>}
 
       <input
         placeholder="Search players..."

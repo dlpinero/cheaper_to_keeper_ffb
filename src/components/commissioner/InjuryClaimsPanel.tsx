@@ -24,6 +24,7 @@ export function InjuryClaimsPanel({ season }: Props) {
   const [playerId, setPlayerId] = useState('');
   const [gamesMissed, setGamesMissed] = useState(0);
   const [continuityEligible, setContinuityEligible] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   async function load() {
     const [{ data: ps }, { data: c }, { data: ms }, { data: pl }, { data: lin }] = await Promise.all([
@@ -51,7 +52,8 @@ export function InjuryClaimsPanel({ season }: Props) {
 
   async function upsertPlayerSeason(e: React.FormEvent) {
     e.preventDefault();
-    const { error } = await supabase.from('player_seasons').upsert(
+    setError(null);
+    const { error: upsertErr } = await supabase.from('player_seasons').upsert(
       {
         season_id: season.id,
         manager_season_id: managerSeasonId,
@@ -61,13 +63,16 @@ export function InjuryClaimsPanel({ season }: Props) {
       },
       { onConflict: 'season_id,player_id' },
     );
-    if (!error) {
-      setGamesMissed(0);
-      load();
+    if (upsertErr) {
+      setError(upsertErr.message);
+      return;
     }
+    setGamesMissed(0);
+    load();
   }
 
   async function fileClaimForRecord(ps: PlayerSeason) {
+    setError(null);
     const { data: authUser } = await supabase.auth.getUser();
     if (!authUser.user) return;
     const { data: manager } = await supabase
@@ -76,7 +81,7 @@ export function InjuryClaimsPanel({ season }: Props) {
       .eq('user_id', authUser.user.id)
       .maybeSingle();
     if (!manager) return;
-    await supabase.from('injury_exemption_claims').insert({
+    const { error: insertErr } = await supabase.from('injury_exemption_claims').insert({
       season_id: season.id,
       manager_season_id: ps.manager_season_id,
       player_id: ps.player_id,
@@ -84,14 +89,23 @@ export function InjuryClaimsPanel({ season }: Props) {
       claimed_by_manager_id: manager.id,
       status: 'pending',
     });
+    if (insertErr) {
+      setError(insertErr.message);
+      return;
+    }
     load();
   }
 
   async function reviewClaim(claim: InjuryExemptionClaim, status: 'approved' | 'denied') {
-    await supabase
+    setError(null);
+    const { error: updateErr } = await supabase
       .from('injury_exemption_claims')
       .update({ status, reviewed_at: new Date().toISOString() })
       .eq('id', claim.id);
+    if (updateErr) {
+      setError(updateErr.message);
+      return;
+    }
     load();
   }
 
@@ -160,6 +174,7 @@ export function InjuryClaimsPanel({ season }: Props) {
         </label>
         <button type="submit">Save</button>
       </form>
+      {error && <p className="error">{error}</p>}
 
       <table>
         <thead>

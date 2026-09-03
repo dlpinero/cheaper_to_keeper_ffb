@@ -20,6 +20,7 @@ interface Props {
 export function SeasonsPanel({ league, activeSeason, onActiveSeasonChange }: Props) {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [error, setError] = useState<string | null>(null);
 
   async function load() {
     const { data } = await supabase
@@ -37,15 +38,23 @@ export function SeasonsPanel({ league, activeSeason, onActiveSeasonChange }: Pro
 
   async function addSeason(e: React.FormEvent) {
     e.preventDefault();
-    const { error } = await supabase.from('seasons').insert({ league_id: league.id, year });
-    if (!error) {
-      setYear(year + 1);
-      load();
+    setError(null);
+    const { error: insertErr } = await supabase.from('seasons').insert({ league_id: league.id, year });
+    if (insertErr) {
+      setError(insertErr.message);
+      return;
     }
+    setYear(year + 1);
+    load();
   }
 
   async function updateStatus(season: Season, status: SeasonStatus) {
-    await supabase.from('seasons').update({ status }).eq('id', season.id);
+    setError(null);
+    const { error: updateErr } = await supabase.from('seasons').update({ status }).eq('id', season.id);
+    if (updateErr) {
+      setError(updateErr.message);
+      return;
+    }
     load();
   }
 
@@ -62,6 +71,7 @@ export function SeasonsPanel({ league, activeSeason, onActiveSeasonChange }: Pro
         />
         <button type="submit">Add season</button>
       </form>
+      {error && <p className="error">{error}</p>}
 
       <table>
         <thead>

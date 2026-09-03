@@ -90,7 +90,12 @@ export function DraftPicksPanel({ season }: Props) {
   }
 
   async function removePick(pick: DraftPick) {
-    await supabase.from('draft_picks').delete().eq('id', pick.id);
+    setError(null);
+    const { error: deleteErr } = await supabase.from('draft_picks').delete().eq('id', pick.id);
+    if (deleteErr) {
+      setError(deleteErr.message);
+      return;
+    }
     load();
   }
 
