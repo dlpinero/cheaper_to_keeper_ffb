@@ -190,6 +190,7 @@ export type Database = {
         };
         Returns: void;
       };
+      is_yahoo_connected: { Args: { p_league_id: string }; Returns: boolean };
     };
   };
 };

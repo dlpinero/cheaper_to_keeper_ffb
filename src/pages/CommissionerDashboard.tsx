@@ -9,6 +9,7 @@ import { DraftPicksPanel } from '../components/commissioner/DraftPicksPanel';
 import { InjuryClaimsPanel } from '../components/commissioner/InjuryClaimsPanel';
 import { KeeperLineagePreview } from '../components/commissioner/KeeperLineagePreview';
 import { OverridesPanel } from '../components/commissioner/OverridesPanel';
+import { YahooImportPanel } from '../components/commissioner/YahooImportPanel';
 import type { League, Season } from '../types/database';
 
 const TABS = [
@@ -19,6 +20,7 @@ const TABS = [
   'Injury Claims',
   'Keeper Preview',
   'Overrides',
+  'Yahoo Import',
 ] as const;
 type Tab = (typeof TABS)[number];
 
@@ -26,7 +28,11 @@ export function CommissionerDashboard() {
   const { manager } = useAuth();
   const [league, setLeague] = useState<League | null>(null);
   const [activeSeason, setActiveSeason] = useState<Season | null>(null);
-  const [tab, setTab] = useState<Tab>('Seasons');
+  // Yahoo's OAuth redirect lands back on this root URL with ?code=... — land
+  // straight on the Yahoo Import tab so YahooImportPanel mounts and can consume it.
+  const [tab, setTab] = useState<Tab>(
+    new URLSearchParams(window.location.search).has('code') ? 'Yahoo Import' : 'Seasons',
+  );
 
   return (
     <div className="dashboard">
@@ -75,7 +81,8 @@ export function CommissionerDashboard() {
             <KeeperLineagePreview season={activeSeason} />
           )}
           {tab === 'Overrides' && activeSeason && <OverridesPanel season={activeSeason} />}
-          {tab !== 'Seasons' && tab !== 'Players' && !activeSeason && (
+          {tab === 'Yahoo Import' && <YahooImportPanel league={league} season={activeSeason} />}
+          {tab !== 'Seasons' && tab !== 'Players' && tab !== 'Yahoo Import' && !activeSeason && (
             <p>Select a season on the Seasons tab first.</p>
           )}
         </>
