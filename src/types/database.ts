@@ -139,6 +139,15 @@ export type KeeperSelectionPick = {
   created_at: string;
 };
 
+export type PlayerAdp = {
+  id: string;
+  season_id: string;
+  player_id: string;
+  adp_round: number;
+  source: DraftPickSource;
+  created_at: string;
+};
+
 export type CommissionerOverride = {
   id: string;
   keeper_selection_pick_id: string;
@@ -175,6 +184,7 @@ export type Database = {
       keeper_selections: Table<KeeperSelection>;
       keeper_selection_picks: Table<KeeperSelectionPick>;
       commissioner_overrides: Table<CommissionerOverride>;
+      player_adp: Table<PlayerAdp>;
     };
     Views: Record<string, never>;
     Functions: {

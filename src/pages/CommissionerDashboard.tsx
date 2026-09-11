@@ -70,7 +70,7 @@ export function CommissionerDashboard() {
           {tab === 'Managers' && activeSeason && (
             <ManagersPanel league={league} season={activeSeason} />
           )}
-          {tab === 'Players' && <PlayersPanel />}
+          {tab === 'Players' && <PlayersPanel season={activeSeason} />}
           {tab === 'Draft Picks' && activeSeason && (
             <DraftPicksPanel season={activeSeason} />
           )}
