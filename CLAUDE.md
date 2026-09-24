@@ -35,6 +35,66 @@ confirmation form was submitted with no provisioning — **next step is to reply
 API Team email** (the DocuSign/confirmation thread) noting the form was submitted but permissions
 never appeared, rather than continuing to silently re-check.
 
+**Unconfirmed hypothesis (2026-09-16, user-flagged):** the email submitted on the Developer
+Application Confirmation Form (`https://sports.yahoo.com/developer/application-confirmation/`)
+may have been `welcome2yankeeland@yahoo.com` (the user's fantasy-league email), which may NOT
+match the Yahoo account the developer app (`T6cPHsgf`) is registered under, or the account that
+received the DocuSign "all parties completed" notice.
+- Confirmed 2026-09-16: the DocuSign completion notice went to the user's `dlpinero` (hotmail)
+  address, NOT `welcome2yankeeland@yahoo.com`.
+- Checked 2026-09-16 via browser, but that check was methodologically flawed — the browser was
+  already signed into Yahoo as `welcome2yankeeland@yahoo.com` before navigating to the app page,
+  so seeing an editable form (Client Secret included) wasn't independent proof of ownership.
+  **User independently re-verified by signing out first and checking cold via the original
+  link — confirmed the app (`T6cPHsgf`) is indeed owned by `welcome2yankeeland@yahoo.com`.**
+  This supersedes the earlier flawed check; same conclusion, better evidence.
+- **Mismatch confirmed**: app ownership = `welcome2yankeeland@yahoo.com`; DocuSign signer =
+  `dlpinero` (hotmail). Still unconfirmed which email was actually typed into the Developer
+  Application Confirmation Form on 09-11 — user isn't certain.
+- This is a plausible root cause of the stuck provisioning: if Yahoo's backend can't reconcile
+  "this app" + "this signed agreement" + "this confirmation form" as one consistent identity, it
+  may silently fail to provision rather than surface an error. **Next step**: mention this
+  three-way mismatch explicitly when emailing Yahoo's Fantasy API team
+  (`fantasyapiapplications@yahoosports.com`), including the App ID (`T6cPHsgf`) and both emails
+  involved, so they can reconcile it on their end.
+- Confirmed 2026-09-23 via Supabase SQL Editor (`select email, user_id is not null as
+  has_logged_in from managers`): every manager who has logged into the *app itself*
+  (`dlpinero@hotmail.com`, `dlpinero+m1@hotmail.com`, `dlpinero+m2@hotmail.com` — test manager
+  accounts via `+` aliasing) is on the `dlpinero` identity. `welcome2yankeeland@yahoo.com` is
+  unrelated to app login — it's specifically the Yahoo account that owns the Yahoo *developer* app
+  (`T6cPHsgf`), a separate system from our own Supabase-backed manager accounts.
+
+**Re-tested 2026-09-23**: clicked "Connect to Yahoo" on the live site (logged in as `dlpinero@hotmail.com`,
+Commissioner Console) — still `?error=invalid_scope&error_description=invalid+scope`. No change
+since 09-11. Provisioning still not live; the mismatch theory above remains the leading explanation.
+
+**Follow-up email sent 2026-09-23** (to `fantasyapiapplications@yahoosports.com`, the mismatch
+noted above included) — **no response yet as of today.** Cross-verified the same day via an
+independent `curl` check (see "Browser-free provisioning check" below) — same `invalid_scope`
+result, confirming this isn't a stale/flaky reading.
+
+**Browser automation note (2026-09-23):** if Claude-in-Chrome browser tools start failing with
+"Script injection timed out" / "waited 45000ms for document_idle" on every page — including
+simple ones — check `chrome://extensions` → Claude → **Site access**. If it's set to "On click,"
+switch it to "On all sites." That was the actual cause of a multi-session browser-automation
+outage; it was not a page-specific or codebase-specific bug.
+
+**Browser-free provisioning check (found 2026-09-23, per the user's "avoid browser automation"
+global preference):** the app's OAuth flow (`YahooImportPanel.tsx`'s `connectToYahoo()`) requests
+scope `fspt-r`. Yahoo validates that scope BEFORE requiring any login, so a plain unauthenticated
+`curl` reproduces the exact same `invalid_scope` signal as clicking "Connect to Yahoo" live —
+no browser, no cookies, no session needed:
+
+```
+curl -s -D - -o /dev/null "https://api.login.yahoo.com/oauth2/request_auth?client_id=<VITE_YAHOO_CLIENT_ID from .env.local>&redirect_uri=https://dlpinero.github.io/cheaper_to_keeper_ffb/&response_type=code&scope=fspt-r&state=check"
+```
+
+Look at the `location:` header. As of 2026-09-23 it's:
+`https://dlpinero.github.io/cheaper_to_keeper_ffb/?error=invalid_scope&error_description=invalid+scope`
+— still not provisioned. Once Fantasy Sports is live, this should redirect somewhere else
+entirely (a real Yahoo login/consent flow) or at minimum drop `error=invalid_scope`. **Use this
+curl check instead of browser automation for the daily monitoring job going forward.**
+
 ## Standing workflow (established by prior sessions — follow this exactly)
 After any code change:
 1. `npx tsc --noEmit`
@@ -75,6 +135,48 @@ manually, or push+deploy and confirm via the Actions API instead.
 entry was scaffolding to test the engine/UI before Yahoo import existed. For a real current-year
 draft, all players and their ADP are expected to come from Yahoo once Phase 4 is unblocked —
 nothing manual. Don't treat the Players-tab manual ADP input as a permanent fallback feature.
+
+**`keeper_lineage` does not self-heal — workflow rule (confirmed by user 2026-09-23):** both
+manual entry (`DraftPicksPanel.tsx`) and `yahoo-draft-import` only *insert* a `keeper_lineage` row
+if one doesn't already exist for that `(season_id, player_id)` — neither ever updates one. This is
+intentional (`keeper_lineage` is append-only, the sole source of truth compounding math reads from
+— overwriting it could silently invalidate already-finalized *later* seasons' keeper math that was
+computed off it), but it means a manually-seeded season is never automatically corrected once real
+Yahoo data comes in; `draft_picks` itself does upsert cleanly (`0005_unique_player_per_season.sql`
+constraint), but `keeper_lineage` staying stale is the actual risk.
+**Rule**: for any given season, pick one path and don't mix — either leave it alone for Yahoo
+import (once Phase 4 unblocks) or enter it manually as a permanent historical record you'll never
+re-import. Never manually seed a season you intend to later Yahoo-import. Concretely for this
+league: 2026 (and any future season) should stay untouched until Yahoo import is live; seasons
+2015–2025 are historical-only and safe to enter by hand anytime since they'll never be re-imported.
+
+**2025 season seeded manually (2026-09-23)** — first real season data in the app. League/managers
+were pulled from the actual Yahoo league site (`cheapertokeepernycfl`, league ID 434543 for 2025),
+not the commissioner's own free-text Commish Notes (which are personal notes, not Yahoo data — do
+not treat Commish Notes content as authoritative for anything). Manager emails are `@placeholder.local`
+for everyone except the commissioner (`dlpinero@hotmail.com`, real, since only the commissioner
+needs to log in during this trial phase) — **do not enter real manager emails into Supabase**
+without the user's explicit go-ahead; see `data/managers_2025.csv` (git-ignored, local-only) for
+the real emails on file if/when needed. Seed script: `data/gen_seed_2025.cjs` generates
+`data/seed_2025.sql` from `data/draft_results_2025.csv` + the hardcoded manager/defense mappings in
+the script — regenerate via `node data/gen_seed_2025.cjs` if the source CSV changes, don't hand-edit
+the generated SQL. Result: 1 season, 9 new managers (+ reused the existing `dlpinero` row), 10
+`manager_seasons`, 160 players (150 real + 10 team defenses, `position='DEF'`), 160 `draft_picks`,
+160 `keeper_lineage` rows — verified via row counts and visually confirmed correct in the Draft
+Picks tab. All of `data/` is git-ignored (added 2026-09-23) since it contains manager PII — never
+remove that `.gitignore` entry without re-checking what's in the folder first.
+
+**Removed the 2 scaffolding test manager accounts (2026-09-24)** — "Test Manager One"
+(`dlpinero+m1@hotmail.com`) and "Test Manager Two" (`dlpinero+m2@hotmail.com`) were leftover dev
+scaffolding, unrelated to the real league. Verified 0 `manager_seasons`/injury claims before
+deleting (safe, no cascade impact). Only real managers remain: the commissioner (`dlpinero`) +
+9 placeholder-email managers from the 2025 seed.
+
+**Browser automation note**: pasting a large (10k+ char) single-line SQL string into Supabase's
+Monaco-based SQL Editor via synthetic keystrokes makes the tab briefly unresponsive to
+screenshot/read actions (CDP script-injection timeouts) while Monaco processes it — this is normal,
+not a crash. Wait ~10-20s and retry `get_page_text` (not `screenshot`, which times out faster);
+the content lands correctly despite the errors. Don't re-type or navigate away thinking it failed.
 
 ## Recent work (most recent first)
 - Added ADP round display to the Players tab (`4496328`); code review flagged a data-loss bug
