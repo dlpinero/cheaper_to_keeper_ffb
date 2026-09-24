@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { computeKeeperOption } from '../../engine';
-import { buildLineageHistory } from '../../lib/lineageHistory';
+import { buildKeeperCandidates } from '../../lib/keeperCandidates';
 import type {
   InjuryExemptionClaim,
   KeeperLineage,
@@ -17,7 +16,7 @@ interface PreviewRow {
   playerId: string;
   playerName: string;
   teamName: string;
-  currentRound: number;
+  currentRound: number | null;
   eligible: boolean;
   ineligibleReason?: string;
   nextRound: number | null;
@@ -49,58 +48,43 @@ export function KeeperLineagePreview({ season }: Props) {
     const seasonYearById = new Map((seasons ?? []).map((s) => [s.id, s.year]));
     const seasonIds = (seasons ?? []).map((s) => s.id);
 
-    const [{ data: lineage }, { data: playerSeasons }, { data: claims }, { data: players }, { data: managerSeasons }] =
-      await Promise.all([
-        supabase.from('keeper_lineage').select('*').in('season_id', seasonIds),
-        supabase.from('player_seasons').select('*').eq('season_id', season.id),
-        supabase.from('injury_exemption_claims').select('*').eq('season_id', season.id).eq('status', 'approved'),
-        supabase.from('players').select('*'),
-        supabase.from('manager_seasons').select('*').eq('season_id', season.id),
-      ]);
+    const [
+      { data: lineage },
+      { data: playerSeasons },
+      { data: claims },
+      { data: players },
+      { data: managerSeasons },
+      { data: adp },
+    ] = await Promise.all([
+      supabase.from('keeper_lineage').select('*').in('season_id', seasonIds),
+      supabase.from('player_seasons').select('*').eq('season_id', season.id),
+      supabase.from('injury_exemption_claims').select('*').eq('season_id', season.id).eq('status', 'approved'),
+      supabase.from('players').select('*'),
+      supabase.from('manager_seasons').select('*').eq('season_id', season.id),
+      supabase.from('player_adp').select('*').eq('season_id', season.id),
+    ]);
 
-    const playerName = (id: string) => players?.find((p) => p.id === id)?.full_name ?? '?';
     const teamNameFor = (managerSeasonId: string) =>
       managerSeasons?.find((ms) => ms.id === managerSeasonId)?.team_name ?? '?';
 
-    const historyByPlayer = buildLineageHistory((lineage ?? []) as KeeperLineage[], seasonYearById);
-
-    const approvedClaimByPlayer = new Map(
-      ((claims ?? []) as InjuryExemptionClaim[]).map((c) => [c.player_id, c]),
-    );
-
-    const eligibilityByPlayer = new Map(
-      ((playerSeasons ?? []) as PlayerSeason[]).map((ps) => [ps.player_id, ps]),
-    );
-
-    const previewRows: PreviewRow[] = [];
-    for (const [playerId, history] of historyByPlayer.entries()) {
-      const latest = history[history.length - 1];
-      if (latest.seasonYear !== season.year) continue; // not on a roster this season
-
-      const ps = eligibilityByPlayer.get(playerId);
-      const claim = approvedClaimByPlayer.get(playerId);
-      const eligibility = {
-        rosterContinuityEligible: ps?.roster_continuity_eligible ?? true,
-        gamesMissed: ps?.games_missed_injury ?? 0,
-        injuryExemptionApproved: Boolean(claim),
-      };
-
-      const result = computeKeeperOption({ playerId, history }, eligibility);
-      const managerSeasonId = (lineage ?? []).find(
-        (l) => l.player_id === playerId && seasonYearById.get(l.season_id) === season.year,
-      )?.manager_season_id;
-
-      previewRows.push({
-        playerId,
-        playerName: playerName(playerId),
-        teamName: managerSeasonId ? teamNameFor(managerSeasonId) : '?',
-        currentRound: latest.slotRound,
-        eligible: result.eligible,
-        ineligibleReason: result.ineligibleReason,
-        nextRound: result.keeperSlotRound,
-        usesInjuryExemptionSlot: result.usesInjuryExemptionSlot,
-      });
-    }
+    const previewRows: PreviewRow[] = buildKeeperCandidates({
+      seasonId: season.id,
+      seasonYearById,
+      lineage: (lineage ?? []) as KeeperLineage[],
+      playerSeasons: (playerSeasons ?? []) as PlayerSeason[],
+      approvedClaims: (claims ?? []) as InjuryExemptionClaim[],
+      players: players ?? [],
+      adp: adp ?? [],
+    }).map((c) => ({
+      playerId: c.playerId,
+      playerName: c.playerName,
+      teamName: teamNameFor(c.managerSeasonId),
+      currentRound: c.currentRound,
+      eligible: c.eligible,
+      ineligibleReason: c.ineligibleReason,
+      nextRound: c.keeperSlotRound,
+      usesInjuryExemptionSlot: c.usesInjuryExemptionSlot,
+    }));
 
     previewRows.sort((a, b) => a.teamName.localeCompare(b.teamName) || a.playerName.localeCompare(b.playerName));
     setRows(previewRows);
@@ -124,7 +108,9 @@ export function KeeperLineagePreview({ season }: Props) {
   const sortedRows = [...rows].sort((a, b) => {
     let cmp = 0;
     if (sortKey === 'round') {
-      cmp = (a.nextRound ?? Infinity) - (b.nextRound ?? Infinity) || a.currentRound - b.currentRound;
+      cmp =
+        (a.nextRound ?? Infinity) - (b.nextRound ?? Infinity) ||
+        (a.currentRound ?? 99) - (b.currentRound ?? 99);
     } else {
       cmp = a.teamName.localeCompare(b.teamName) || a.playerName.localeCompare(b.playerName);
     }
@@ -135,13 +121,14 @@ export function KeeperLineagePreview({ season }: Props) {
     <section>
       <h2>Keeper preview for next season (read-only)</h2>
       <p>
-        Computed by the calc engine from real lineage + roster-continuity/injury data. Enter draft
-        picks and roster-continuity data first, then check here.
+        Computed by the calc engine. The draft sets each player's round; the end-of-week-14 roster
+        (held through week 17) decides who is actually eligible and which team holds him. Enter
+        draft picks and the roster checkpoint first, then check here.
       </p>
       {loading ? (
         <p>Loading...</p>
       ) : rows.length === 0 ? (
-        <p>No rostered players with lineage history for {season.year} yet.</p>
+        <p>No players recorded on {season.year} rosters yet.</p>
       ) : (
         <table>
           <thead>
@@ -165,7 +152,7 @@ export function KeeperLineagePreview({ season }: Props) {
                 <td>{r.playerName}</td>
                 <td>{r.eligible ? r.nextRound : '—'}</td>
                 <td>{r.eligible ? 'Yes' : `No (${r.ineligibleReason})`}</td>
-                <td>{r.currentRound}</td>
+                <td>{r.currentRound ?? 'Undrafted'}</td>
                 <td>{r.eligible && r.usesInjuryExemptionSlot ? 'Yes' : ''}</td>
               </tr>
             ))}
