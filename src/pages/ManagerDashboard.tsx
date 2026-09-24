@@ -6,7 +6,11 @@ import { KeeperPortal } from '../components/manager/KeeperPortal';
 import { InjuryExemptionRequest } from '../components/manager/InjuryExemptionRequest';
 import type { ManagerSeason, Season } from '../types/database';
 
-export function ManagerDashboard() {
+interface Props {
+  onSwitchToCommissioner?: () => void;
+}
+
+export function ManagerDashboard({ onSwitchToCommissioner }: Props = {}) {
   const { manager } = useAuth();
   const [loading, setLoading] = useState(true);
   const [season, setSeason] = useState<Season | null>(null);
@@ -54,6 +58,9 @@ export function ManagerDashboard() {
         <h1>My Team</h1>
         <div>
           <span>{manager?.display_name}</span>
+          {onSwitchToCommissioner && (
+            <button onClick={onSwitchToCommissioner}>Back to Commissioner Console</button>
+          )}
           <button onClick={() => signOut()}>Sign out</button>
         </div>
       </header>

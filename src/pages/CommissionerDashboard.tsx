@@ -24,7 +24,11 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number];
 
-export function CommissionerDashboard() {
+interface Props {
+  onSwitchToManager?: () => void;
+}
+
+export function CommissionerDashboard({ onSwitchToManager }: Props) {
   const { manager } = useAuth();
   const [league, setLeague] = useState<League | null>(null);
   const [activeSeason, setActiveSeason] = useState<Season | null>(null);
@@ -40,6 +44,7 @@ export function CommissionerDashboard() {
         <h1>Commissioner Console</h1>
         <div>
           <span>{manager?.display_name}</span>
+          {onSwitchToManager && <button onClick={onSwitchToManager}>My Team</button>}
           <button onClick={() => signOut()}>Sign out</button>
         </div>
       </header>
