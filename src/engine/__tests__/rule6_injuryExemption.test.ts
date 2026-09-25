@@ -70,11 +70,11 @@ describe('rule 6: injury exemption', () => {
       lockedForever: false,
     };
 
-    // 2025 season: 9 games missed, exemption approved -> 2026 slot is frozen at round 4,
+    // 2025 season: 9 games missed (exemption qualifies) -> 2026 slot is frozen at round 4,
     // not escalated to round 3.
     const kept2026 = computeKeeperOption(
       { playerId: 'x', history: [draftedRound4] },
-      { rosterContinuityEligible: true, gamesMissed: 9, injuryExemptionApproved: true },
+      { rosterContinuityEligible: true, gamesMissed: 9 },
     );
     expect(kept2026.eligible).toBe(true);
     expect(kept2026.keeperSlotRound).toBe(4);
@@ -93,7 +93,7 @@ describe('rule 6: injury exemption', () => {
     // round 4 (rule 4/5 bracket), landing on round 3.
     const kept2027 = computeKeeperOption(
       { playerId: 'x', history: [draftedRound4, lineage2026] },
-      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+      { rosterContinuityEligible: true, gamesMissed: 0 },
     );
     expect(kept2027.eligible).toBe(true);
     expect(kept2027.keeperSlotRound).toBe(3);

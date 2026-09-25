@@ -15,7 +15,6 @@ export interface LineageEntry {
 export interface EligibilityInput {
   rosterContinuityEligible: boolean;
   gamesMissed: number;
-  injuryExemptionApproved: boolean;
 }
 
 export type IneligibleReason =

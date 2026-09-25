@@ -14,7 +14,7 @@ describe('rule 3: rounds 1-3 exemption', () => {
   it('is ineligible without a qualifying injury exemption', () => {
     const result = computeKeeperOption(
       { playerId: 'p1', history: [round1Draft] },
-      { rosterContinuityEligible: true, gamesMissed: 3, injuryExemptionApproved: false },
+      { rosterContinuityEligible: true, gamesMissed: 3 },
     );
     expect(result.eligible).toBe(false);
     expect(result.ineligibleReason).toBe('rounds_1_3_not_exempt');
@@ -23,7 +23,7 @@ describe('rule 3: rounds 1-3 exemption', () => {
   it('is ineligible if games missed is under 8, even if the commissioner "approved" it', () => {
     const result = computeKeeperOption(
       { playerId: 'p1', history: [round1Draft] },
-      { rosterContinuityEligible: true, gamesMissed: 7, injuryExemptionApproved: true },
+      { rosterContinuityEligible: true, gamesMissed: 7 },
     );
     expect(result.eligible).toBe(false);
     expect(result.ineligibleReason).toBe('rounds_1_3_not_exempt');
@@ -32,7 +32,7 @@ describe('rule 3: rounds 1-3 exemption', () => {
   it('worked example: round 1 pick in 2025, missed 9 games, kept round 1 in 2026 (not a permanent lock)', () => {
     const result = computeKeeperOption(
       { playerId: 'p1', history: [round1Draft] },
-      { rosterContinuityEligible: true, gamesMissed: 9, injuryExemptionApproved: true },
+      { rosterContinuityEligible: true, gamesMissed: 9 },
     );
     expect(result.eligible).toBe(true);
     expect(result.keeperSlotRound).toBe(1);
@@ -50,7 +50,7 @@ describe('rule 3: rounds 1-3 exemption', () => {
     };
     const result = computeKeeperOption(
       { playerId: 'p1', history: [round1Draft, keptRound1] },
-      { rosterContinuityEligible: true, gamesMissed: 9, injuryExemptionApproved: true },
+      { rosterContinuityEligible: true, gamesMissed: 9 },
     );
     expect(result.eligible).toBe(true);
     expect(result.keeperSlotRound).toBe(1);
@@ -68,7 +68,7 @@ describe('rule 3: rounds 1-3 exemption', () => {
     };
     const result = computeKeeperOption(
       { playerId: 'p1', history: [round1Draft, keptRound1] },
-      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+      { rosterContinuityEligible: true, gamesMissed: 0 },
     );
     expect(result.eligible).toBe(false);
     expect(result.ineligibleReason).toBe('rounds_1_3_not_exempt');
@@ -79,13 +79,13 @@ describe('rule 3: rounds 1-3 exemption', () => {
       const entry: LineageEntry = { ...round1Draft, slotRound: round };
       const noExemption = computeKeeperOption(
         { playerId: 'p1', history: [entry] },
-        { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+        { rosterContinuityEligible: true, gamesMissed: 0 },
       );
       expect(noExemption.eligible).toBe(false);
 
       const withExemption = computeKeeperOption(
         { playerId: 'p1', history: [entry] },
-        { rosterContinuityEligible: true, gamesMissed: 8, injuryExemptionApproved: true },
+        { rosterContinuityEligible: true, gamesMissed: 8 },
       );
       expect(withExemption.eligible).toBe(true);
       expect(withExemption.keeperSlotRound).toBe(round);

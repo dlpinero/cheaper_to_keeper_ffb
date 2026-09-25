@@ -6,7 +6,7 @@ describe('rule 7: undrafted players', () => {
   it('worked example: undrafted, ADP round 2 for next draft, slots as round 4 keeper', () => {
     const result = computeKeeperOption(
       { playerId: 'p1', history: [], adpRoundForNextDraft: 2 },
-      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+      { rosterContinuityEligible: true, gamesMissed: 0 },
     );
     expect(result.eligible).toBe(true);
     expect(result.keeperSlotRound).toBe(4);
@@ -14,7 +14,7 @@ describe('rule 7: undrafted players', () => {
   });
 
   it('caps the slot at round 16 — the draft has no rounds beyond that', () => {
-    const eligibility = { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false };
+    const eligibility = { rosterContinuityEligible: true, gamesMissed: 0 };
     expect(
       computeKeeperOption({ playerId: 'p1', history: [], adpRoundForNextDraft: 16 }, eligibility)
         .keeperSlotRound,
@@ -36,7 +36,7 @@ describe('rule 7: undrafted players', () => {
   it('is ineligible with no lineage and no ADP (never drafted, no ADP data)', () => {
     const result = computeKeeperOption(
       { playerId: 'p1', history: [] },
-      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+      { rosterContinuityEligible: true, gamesMissed: 0 },
     );
     expect(result.eligible).toBe(false);
     expect(result.ineligibleReason).toBe('no_lineage_history');
@@ -53,7 +53,7 @@ describe('rule 7: undrafted players', () => {
     // Even if adpRoundForNextDraft were passed again, history should take priority.
     const result = computeKeeperOption(
       { playerId: 'p1', history: [keptFromAdp], adpRoundForNextDraft: 1 },
-      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+      { rosterContinuityEligible: true, gamesMissed: 0 },
     );
     // Round 4 -> escalates to 3, NOT re-derived from ADP (1 + 2 = 3 would coincidentally
     // match here anyway).

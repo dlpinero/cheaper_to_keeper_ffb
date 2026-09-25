@@ -30,8 +30,9 @@ export function computeKeeperOption(
     return ineligible(input.playerId, 'not_roster_continuous');
   }
 
-  const exemptionQualifies =
-    qualifiesForInjuryExemption(eligibility.gamesMissed) && eligibility.injuryExemptionApproved;
+  // Rule 6: the commissioner's recorded games-missed count is authoritative on its own —
+  // an injury_exemption_claims approval is an optional audit/review layer, not a gate.
+  const exemptionQualifies = qualifiesForInjuryExemption(eligibility.gamesMissed);
 
   const reference = getReferenceLineageEntry(input.history);
 

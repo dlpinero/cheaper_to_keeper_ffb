@@ -3,14 +3,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { validateKeeperSelection } from '../../engine';
 import type { SelectionValidationResult } from '../../engine';
 import { buildKeeperCandidates } from '../../lib/keeperCandidates';
-import type {
-  InjuryExemptionClaim,
-  KeeperLineage,
-  KeeperSelection,
-  ManagerSeason,
-  PlayerSeason,
-  Season,
-} from '../../types/database';
+import type { KeeperLineage, KeeperSelection, ManagerSeason, PlayerSeason, Season } from '../../types/database';
 
 interface Props {
   season: Season;
@@ -77,30 +70,19 @@ export function KeeperPortal({ season, managerSeason }: Props) {
 
     // player_seasons / player_adp are league-wide reads: a player I drafted may be held by
     // someone else at the checkpoint, so I need everyone's records to place him correctly.
-    const [
-      { data: lineage },
-      { data: playerSeasons },
-      { data: claims },
-      { data: players },
-      { data: adp },
-    ] = await Promise.all([
-      supabase.from('keeper_lineage').select('*').in('season_id', seasonIds),
-      supabase.from('player_seasons').select('*').eq('season_id', season.id),
-      supabase
-        .from('injury_exemption_claims')
-        .select('*')
-        .eq('season_id', season.id)
-        .eq('status', 'approved'),
-      supabase.from('players').select('*'),
-      supabase.from('player_adp').select('*').eq('season_id', season.id),
-    ]);
+    const [{ data: lineage }, { data: playerSeasons }, { data: players }, { data: adp }] =
+      await Promise.all([
+        supabase.from('keeper_lineage').select('*').in('season_id', seasonIds),
+        supabase.from('player_seasons').select('*').eq('season_id', season.id),
+        supabase.from('players').select('*'),
+        supabase.from('player_adp').select('*').eq('season_id', season.id),
+      ]);
 
     const rows: Candidate[] = buildKeeperCandidates({
       seasonId: season.id,
       seasonYearById,
       lineage: (lineage ?? []) as KeeperLineage[],
       playerSeasons: (playerSeasons ?? []) as PlayerSeason[],
-      approvedClaims: (claims ?? []) as InjuryExemptionClaim[],
       players: players ?? [],
       adp: adp ?? [],
     })

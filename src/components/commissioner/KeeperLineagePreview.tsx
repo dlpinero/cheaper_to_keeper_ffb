@@ -1,12 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { buildKeeperCandidates } from '../../lib/keeperCandidates';
-import type {
-  InjuryExemptionClaim,
-  KeeperLineage,
-  PlayerSeason,
-  Season,
-} from '../../types/database';
+import type { KeeperLineage, PlayerSeason, Season } from '../../types/database';
 
 interface Props {
   season: Season;
@@ -51,14 +46,12 @@ export function KeeperLineagePreview({ season }: Props) {
     const [
       { data: lineage },
       { data: playerSeasons },
-      { data: claims },
       { data: players },
       { data: managerSeasons },
       { data: adp },
     ] = await Promise.all([
       supabase.from('keeper_lineage').select('*').in('season_id', seasonIds),
       supabase.from('player_seasons').select('*').eq('season_id', season.id),
-      supabase.from('injury_exemption_claims').select('*').eq('season_id', season.id).eq('status', 'approved'),
       supabase.from('players').select('*'),
       supabase.from('manager_seasons').select('*').eq('season_id', season.id),
       supabase.from('player_adp').select('*').eq('season_id', season.id),
@@ -72,7 +65,6 @@ export function KeeperLineagePreview({ season }: Props) {
       seasonYearById,
       lineage: (lineage ?? []) as KeeperLineage[],
       playerSeasons: (playerSeasons ?? []) as PlayerSeason[],
-      approvedClaims: (claims ?? []) as InjuryExemptionClaim[],
       players: players ?? [],
       adp: adp ?? [],
     }).map((c) => ({

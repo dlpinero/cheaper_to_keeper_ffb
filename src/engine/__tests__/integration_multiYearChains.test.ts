@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { computeKeeperOption } from '../index';
 import type { LineageEntry } from '../types';
 
-const eligible = { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false };
+const eligible = { rosterContinuityEligible: true, gamesMissed: 0 };
 
 function keepAnotherYear(playerId: string, history: LineageEntry[], nextYear: number): LineageEntry[] {
   const result = computeKeeperOption({ playerId, history }, eligible);
@@ -37,7 +37,7 @@ describe('integration: multi-year keeper chains', () => {
     // Qualifying for the exemption in 2028 instead keeps him at round 3.
     const withExemption2028 = computeKeeperOption(
       { playerId: 'p1', history },
-      { rosterContinuityEligible: true, gamesMissed: 8, injuryExemptionApproved: true },
+      { rosterContinuityEligible: true, gamesMissed: 8 },
     );
     expect(withExemption2028.eligible).toBe(true);
     expect(withExemption2028.keeperSlotRound).toBe(3);
@@ -47,7 +47,7 @@ describe('integration: multi-year keeper chains', () => {
     let history: LineageEntry[] = [
       { playerId: 'p1', seasonYear: 2025, slotRound: 1, origin: 'drafted', lockedForever: false },
     ];
-    const exempt = { rosterContinuityEligible: true, gamesMissed: 9, injuryExemptionApproved: true };
+    const exempt = { rosterContinuityEligible: true, gamesMissed: 9 };
 
     const firstKeep = computeKeeperOption({ playerId: 'p1', history }, exempt);
     expect(firstKeep.keeperSlotRound).toBe(1);
@@ -72,7 +72,7 @@ describe('integration: multi-year keeper chains', () => {
     // not keeper-eligible this year (not dropped, not locked out forever — just not this year).
     const notExempt = computeKeeperOption(
       { playerId: 'p1', history },
-      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+      { rosterContinuityEligible: true, gamesMissed: 0 },
     );
     expect(notExempt.eligible).toBe(false);
     expect(notExempt.ineligibleReason).toBe('rounds_1_3_not_exempt');

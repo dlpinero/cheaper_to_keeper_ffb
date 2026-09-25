@@ -14,7 +14,7 @@ describe('rule 8: compounding escalates off last keeper slot, not the original d
 
     const for2025 = computeKeeperOption(
       { playerId: 'p1', history: [draftedIn2024] },
-      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+      { rosterContinuityEligible: true, gamesMissed: 0 },
     );
     expect(for2025.keeperSlotRound).toBe(6); // 8 - 2, still in the 8+ bracket
 
@@ -30,7 +30,7 @@ describe('rule 8: compounding escalates off last keeper slot, not the original d
       // Deliberately include the original 2024 entry too — the engine must pick the most
       // recent one (2025, round 6) as the reference, not the original round 8.
       { playerId: 'p1', history: [draftedIn2024, keptIn2025] },
-      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+      { rosterContinuityEligible: true, gamesMissed: 0 },
     );
     // Reference round is now 6, which falls in the 4-7 bracket -> -1, not the 8+ bracket.
     expect(for2026.keeperSlotRound).toBe(5);

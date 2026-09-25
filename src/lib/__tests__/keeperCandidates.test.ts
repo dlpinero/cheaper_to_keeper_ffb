@@ -62,7 +62,6 @@ function build(opts: {
     seasonYearById,
     lineage: opts.lineage ?? [],
     playerSeasons: opts.playerSeasons ?? [],
-    approvedClaims: [],
     players,
     adp: opts.adp ?? [],
   });
@@ -121,5 +120,13 @@ describe('buildKeeperCandidates', () => {
 
   it('a player with no draft and no checkpoint record never appears', () => {
     expect(build({})).toEqual([]);
+  });
+
+  it('games_missed_injury >= 8 on the checkpoint alone grants the exemption — no claim involved', () => {
+    const [row] = build({
+      lineage: [drafted('p1', 'A', 2)],
+      playerSeasons: [checkpoint('p1', 'A', true, 8)],
+    });
+    expect(row).toMatchObject({ eligible: true, keeperSlotRound: 2, usesInjuryExemptionSlot: true });
   });
 });

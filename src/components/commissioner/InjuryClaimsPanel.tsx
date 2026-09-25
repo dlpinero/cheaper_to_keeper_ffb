@@ -22,9 +22,18 @@ export function InjuryClaimsPanel({ season }: Props) {
 
   const [managerSeasonId, setManagerSeasonId] = useState('');
   const [playerId, setPlayerId] = useState('');
-  const [gamesMissed, setGamesMissed] = useState(0);
+  // The commissioner enters what actually happened (games played, bye week); the app does the
+  // arithmetic (bye/playoff exclusion, the 8-game threshold) instead of the commissioner doing
+  // it by hand. Only fill this in for a player suspected of qualifying — not every roster spot.
+  const [gamesPlayed, setGamesPlayed] = useState(0);
+  const [byeWeek, setByeWeek] = useState(0);
   const [continuityEligible, setContinuityEligible] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Real NFL byes always fall within weeks 1-14, leaving 13 possible games in the window this
+  // league's injury exemption cares about (weeks 15-18 are fantasy playoffs, excluded entirely).
+  const hasByeWeek = byeWeek >= 1 && byeWeek <= 14;
+  const gamesMissed = hasByeWeek ? Math.max(0, 13 - gamesPlayed) : null;
 
   async function load() {
     const [{ data: ps }, { data: c }, { data: ms }, { data: pl }, { data: lin }] = await Promise.all([
@@ -52,6 +61,7 @@ export function InjuryClaimsPanel({ season }: Props) {
 
   async function upsertPlayerSeason(e: React.FormEvent) {
     e.preventDefault();
+    if (gamesMissed === null) return;
     setError(null);
     const { error: upsertErr } = await supabase.from('player_seasons').upsert(
       {
@@ -67,7 +77,8 @@ export function InjuryClaimsPanel({ season }: Props) {
       setError(upsertErr.message);
       return;
     }
-    setGamesMissed(0);
+    setGamesPlayed(0);
+    setByeWeek(0);
     load();
   }
 
@@ -127,9 +138,12 @@ export function InjuryClaimsPanel({ season }: Props) {
     <section>
       <h2>Roster continuity &amp; injury data — {season.year}</h2>
       <p>
-        Games missed and roster-continuity eligibility feed the keeper engine directly. Rule 1:
+        Enter games played and the bye week; the app computes games missed and applies the 8-game
+        threshold directly — no separate claim/approval needed for the exemption to take effect.
+        Only fill this in for a player you suspect might qualify, not every roster spot. Rule 1:
         continuity is absolute — dropping a player at any point during the playoffs disqualifies
-        him as a keeper, even under the injury exemption.
+        him as a keeper, even under the injury exemption. The claims table below is now purely an
+        optional record of manager-requested reviews/commissioner overrides.
       </p>
       <form onSubmit={upsertPlayerSeason} className="inline-form">
         <label htmlFor="ps-team">Team</label>
@@ -156,14 +170,29 @@ export function InjuryClaimsPanel({ season }: Props) {
             </option>
           ))}
         </select>
-        <label htmlFor="games-missed">Games missed (injury)</label>
+        <label htmlFor="games-played">Games played (weeks 1-14)</label>
         <input
-          id="games-missed"
+          id="games-played"
           type="number"
           min={0}
-          value={gamesMissed}
-          onChange={(e) => setGamesMissed(Number(e.target.value))}
+          max={13}
+          value={gamesPlayed}
+          onChange={(e) => setGamesPlayed(Number(e.target.value))}
         />
+        <label htmlFor="bye-week">Bye week (1-14)</label>
+        <input
+          id="bye-week"
+          type="number"
+          min={1}
+          max={14}
+          value={byeWeek || ''}
+          onChange={(e) => setByeWeek(Number(e.target.value))}
+        />
+
+        <div style={{ flexBasis: '100%', height: 0 }} />
+
+        <label htmlFor="games-missed">Games missed (injury) — computed</label>
+        <input id="games-missed" type="text" readOnly value={gamesMissed ?? ''} />
         <label>
           <input
             type="checkbox"
@@ -172,7 +201,9 @@ export function InjuryClaimsPanel({ season }: Props) {
           />
           Roster-continuous through playoffs
         </label>
-        <button type="submit">Save</button>
+        <button type="submit" disabled={gamesMissed === null}>
+          Save
+        </button>
       </form>
       {error && <p className="error">{error}</p>}
 

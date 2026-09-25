@@ -1,12 +1,6 @@
 import { computeKeeperOption } from '../engine';
 import { buildLineageHistory } from './lineageHistory';
-import type {
-  InjuryExemptionClaim,
-  KeeperLineage,
-  Player,
-  PlayerAdp,
-  PlayerSeason,
-} from '../types/database';
+import type { KeeperLineage, Player, PlayerAdp, PlayerSeason } from '../types/database';
 
 export interface KeeperCandidateRow {
   playerId: string;
@@ -27,7 +21,6 @@ interface BuildInput {
   lineage: KeeperLineage[];
   /** Every manager's checkpoint records for this season. */
   playerSeasons: PlayerSeason[];
-  approvedClaims: InjuryExemptionClaim[];
   players: Player[];
   /** player_adp rows for this season (they predict the next draft). */
   adp: PlayerAdp[];
@@ -44,7 +37,6 @@ interface BuildInput {
 export function buildKeeperCandidates(input: BuildInput): KeeperCandidateRow[] {
   const historyByPlayer = buildLineageHistory(input.lineage, input.seasonYearById);
   const checkpointByPlayer = new Map(input.playerSeasons.map((ps) => [ps.player_id, ps]));
-  const claimedPlayers = new Set(input.approvedClaims.map((c) => c.player_id));
   const adpByPlayer = new Map(input.adp.map((a) => [a.player_id, a.adp_round]));
   const nameById = new Map(input.players.map((p) => [p.id, p.full_name]));
 
@@ -72,7 +64,6 @@ export function buildKeeperCandidates(input: BuildInput): KeeperCandidateRow[] {
       {
         rosterContinuityEligible: checkpoint?.roster_continuity_eligible ?? true,
         gamesMissed: checkpoint?.games_missed_injury ?? 0,
-        injuryExemptionApproved: claimedPlayers.has(playerId),
       },
     );
 

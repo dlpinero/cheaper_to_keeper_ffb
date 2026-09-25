@@ -31,7 +31,7 @@ describe('rules 4/5: escalation brackets', () => {
     };
     const result = computeKeeperOption(
       { playerId: 'p1', history: [entry] },
-      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+      { rosterContinuityEligible: true, gamesMissed: 0 },
     );
     expect(result.keeperSlotRound).toBe(6);
   });
@@ -46,7 +46,7 @@ describe('rules 4/5: escalation brackets', () => {
     };
     const result = computeKeeperOption(
       { playerId: 'p2', history: [entry] },
-      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+      { rosterContinuityEligible: true, gamesMissed: 0 },
     );
     expect(result.keeperSlotRound).toBe(6);
   });

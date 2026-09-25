@@ -19,7 +19,7 @@ describe('rule 9 (superseded): escalating into round 3', () => {
     };
     const result = computeKeeperOption(
       { playerId: 'p1', history: [entry] },
-      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+      { rosterContinuityEligible: true, gamesMissed: 0 },
     );
     expect(result.eligible).toBe(true);
     expect(result.keeperSlotRound).toBe(3);
@@ -38,14 +38,14 @@ describe('rule 9 (superseded): escalating into round 3', () => {
 
     const withoutExemption = computeKeeperOption(
       { playerId: 'p1', history: [atRoundThree] },
-      { rosterContinuityEligible: true, gamesMissed: 0, injuryExemptionApproved: false },
+      { rosterContinuityEligible: true, gamesMissed: 0 },
     );
     expect(withoutExemption.eligible).toBe(false);
     expect(withoutExemption.ineligibleReason).toBe('rounds_1_3_not_exempt');
 
     const withExemption = computeKeeperOption(
       { playerId: 'p1', history: [atRoundThree] },
-      { rosterContinuityEligible: true, gamesMissed: 9, injuryExemptionApproved: true },
+      { rosterContinuityEligible: true, gamesMissed: 9 },
     );
     expect(withExemption.eligible).toBe(true);
     expect(withExemption.keeperSlotRound).toBe(3);
