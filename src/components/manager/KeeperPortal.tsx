@@ -34,6 +34,8 @@ interface OtherPick {
   usesInjuryExemptionSlot: boolean;
 }
 
+type SortKey = 'player' | 'nextRound' | 'currentRound';
+
 export function KeeperPortal({ season, managerSeason }: Props) {
   const [loading, setLoading] = useState(true);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -42,6 +44,8 @@ export function KeeperPortal({ season, managerSeason }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [others, setOthers] = useState<OtherPick[] | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>('player');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     load();
@@ -236,9 +240,40 @@ export function KeeperPortal({ season, managerSeason }: Props) {
     setSaving(false);
   }
 
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  }
+
+  function sortArrow(key: SortKey) {
+    if (sortKey !== key) return '';
+    return sortDir === 'asc' ? ' ▲' : ' ▼';
+  }
+
   if (loading) return <p>Loading your roster...</p>;
 
   const isFinalized = selection?.status === 'finalized';
+  // Ineligible players can't be kept, so there's nothing for a manager to do with them —
+  // hide them rather than clutter the selection table.
+  const eligibleCandidates = candidates.filter((c) => c.eligible);
+  const visibleCandidates = isFinalized
+    ? eligibleCandidates.filter((c) => selectedIds.has(c.playerId))
+    : eligibleCandidates;
+  const sortedCandidates = [...visibleCandidates].sort((a, b) => {
+    let cmp = 0;
+    if (sortKey === 'nextRound') {
+      cmp = (a.keeperSlotRound ?? Infinity) - (b.keeperSlotRound ?? Infinity);
+    } else if (sortKey === 'currentRound') {
+      cmp = (a.currentRound ?? Infinity) - (b.currentRound ?? Infinity);
+    } else {
+      cmp = a.playerName.localeCompare(b.playerName);
+    }
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
 
   return (
     <section>
@@ -247,39 +282,39 @@ export function KeeperPortal({ season, managerSeason }: Props) {
 
       {candidates.length === 0 ? (
         <p>No players recorded on your {season.year} roster yet.</p>
+      ) : sortedCandidates.length === 0 ? (
+        <p>None of your {season.year} players are keeper-eligible for {season.year + 1}.</p>
       ) : (
         <table>
           <thead>
             <tr>
               {!isFinalized && <th></th>}
-              <th>Player</th>
-              <th>{season.year + 1} round if kept</th>
-              <th>Eligible?</th>
-              <th>{season.year} round</th>
+              <th onClick={() => toggleSort('player')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                Player{sortArrow('player')}
+              </th>
+              <th onClick={() => toggleSort('nextRound')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                {season.year + 1} round if kept{sortArrow('nextRound')}
+              </th>
+              <th onClick={() => toggleSort('currentRound')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                {season.year} round{sortArrow('currentRound')}
+              </th>
               <th>Uses injury exemption</th>
             </tr>
           </thead>
           <tbody>
-            {candidates.map((c) => {
+            {sortedCandidates.map((c) => {
               const checked = selectedIds.has(c.playerId);
-              if (isFinalized && !checked) return null;
               return (
                 <tr key={c.playerId} className={checked ? 'active-row' : ''}>
                   {!isFinalized && (
                     <td>
-                      <input
-                        type="checkbox"
-                        disabled={!c.eligible}
-                        checked={checked}
-                        onChange={() => toggle(c.playerId)}
-                      />
+                      <input type="checkbox" checked={checked} onChange={() => toggle(c.playerId)} />
                     </td>
                   )}
                   <td>{c.playerName}</td>
-                  <td>{c.eligible ? c.keeperSlotRound : '—'}</td>
-                  <td>{c.eligible ? 'Yes' : `No (${c.ineligibleReason})`}</td>
+                  <td>{c.keeperSlotRound}</td>
                   <td>{c.currentRound ?? 'Undrafted'}</td>
-                  <td>{c.eligible && c.usesInjuryExemptionSlot ? 'Yes' : ''}</td>
+                  <td>{c.usesInjuryExemptionSlot ? 'Yes' : ''}</td>
                 </tr>
               );
             })}

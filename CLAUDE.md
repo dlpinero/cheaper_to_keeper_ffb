@@ -136,6 +136,21 @@ entry was scaffolding to test the engine/UI before Yahoo import existed. For a r
 draft, all players and their ADP are expected to come from Yahoo once Phase 4 is unblocked —
 nothing manual. Don't treat the Players-tab manual ADP input as a permanent fallback feature.
 
+**2026 ADP source for `player_adp` rows (2026-09-25):** Yahoo's public "Player List" page in
+Research stats view (`https://football.fantasysports.yahoo.com/f1/537265/playersearch?&search=<name>&stat1=R_O`,
+"Avg Pick" column) gives the real average draft position from actual completed 2026 drafts across
+Yahoo leagues — not a shifting preseason projection, since this league's 2026 draft already
+happened (Aug 28). Convert to a round for this 10-team league via `ceil(avg_pick / 10)`; there's
+no existing helper for this, it was done ad hoc. A player with no Avg Pick at all (too rarely
+drafted for Yahoo to average) gets `adp_round = 16` per user instruction ("16th round is the last
+round for all eligibility") — rule 7 then adds +2 and caps at 16 anyway, so this just skips
+straight to the cap rather than leaving the player stuck at `adp_pending`. Applied 2026-09-25 to
+the 6 undrafted-but-kept players on the commissioner's own team (Ceedee burners obsolete): Will
+Reichard (Avg Pick 142.7 -> round 15), 49ers/Browns DEF (123.5/129.7 -> round 13 each), Packers
+DEF (134.4 -> round 14), Zach Ertz and Theo Johnson (no Avg Pick -> round 16). The other 9 teams'
+undrafted-but-kept players (all currently `adp_pending`) haven't been done yet — same process:
+look up each by name at that URL, convert, insert into `player_adp`.
+
 **`keeper_lineage` does not self-heal — workflow rule (confirmed by user 2026-09-23):** both
 manual entry (`DraftPicksPanel.tsx`) and `yahoo-draft-import` only *insert* a `keeper_lineage` row
 if one doesn't already exist for that `(season_id, player_id)` — neither ever updates one. This is
@@ -165,6 +180,28 @@ the generated SQL. Result: 1 season, 9 new managers (+ reused the existing `dlpi
 160 `keeper_lineage` rows — verified via row counts and visually confirmed correct in the Draft
 Picks tab. All of `data/` is git-ignored (added 2026-09-23) since it contains manager PII — never
 remove that `.gitignore` entry without re-checking what's in the folder first.
+
+**Keeper eligibility = the roster checkpoint, not the draft (user-confirmed 2026-09-24).** The draft
+only sets a player's round + initial eligibility. A player is keeper-eligible only if he was on the
+same manager's roster at the end of week 14 (last regular-season week) and stayed through week 17
+(end of playoffs); dropped in wk15-17, or not on that roster at wk14 => not eligible. A drafted
+player picked up off waivers by another team keeps his original draft round (user-confirmed). No
+trades happened in 2025. Modeled with `player_seasons` (unique per season+player): `manager_season_id`
+= holder at the wk14 checkpoint, `roster_continuity_eligible` = held through wk17, `notes` = why not.
+`src/lib/keeperCandidates.ts` (`buildKeeperCandidates`, unit-tested) is the single builder used by
+BOTH `KeeperPortal` and `KeeperLineagePreview`: a checkpoint row overrides the drafting manager
+(so `keeper_lineage` is never touched for trades/pickups), and undrafted players held wk14-17 use
+rule 7 (next-draft ADP + 2) — shown as `adp_pending` until `player_adp` has a value (2026 ADP
+comes from Yahoo; not available yet). The `?? true` default for a player with no checkpoint row is
+still there: for a NEW season, checkpoint rows must be recorded or everyone drafted looks eligible.
+2025 data loaded 2026-09-24 via the SQL Editor: 213 `player_seasons` rows (165 wk14-rostered +
+48 draftees on no roster) and 53 new `players` (44 kept undrafted pickups + 9 dropped; 10 are team
+defenses, `position='DEF'`). Source pulled from Yahoo (`/2025/f1/434543/<team_id>?week=N`, team ids
+1-10, plus `/transactions`); local files in git-ignored `data/`: `rosters_2025.json`,
+`checkpoint_2025_rows.json`, `gen_checkpoint_2025.cjs` -> `seed_checkpoint_2025.sql`.
+Verified: 150 kept through wk17 (93 drafted-by-same-team, 13 drafted-by-another-team waiver pickups,
+44 undrafted), 15 dropped after wk14. Roster-scoped dropdowns in Overrides/Injury Claims still key
+off `keeper_lineage` (drafter), so they don't list undrafted pickups or waiver pickups yet.
 
 **Removed the 2 scaffolding test manager accounts (2026-09-24)** — "Test Manager One"
 (`dlpinero+m1@hotmail.com`) and "Test Manager Two" (`dlpinero+m2@hotmail.com`) were leftover dev
