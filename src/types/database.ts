@@ -21,7 +21,7 @@ export type DraftPickSource = 'yahoo_import' | 'manual';
 export type LineageOrigin = 'drafted' | 'kept_normal' | 'kept_injury_exempt';
 export type ExemptionStatus = 'pending' | 'approved' | 'denied';
 export type KeeperSelectionStatus = 'draft' | 'finalized';
-export type OverrideReason = 'injury' | 'retirement' | 'suspension';
+export type OverrideReason = 'injury' | 'retirement' | 'suspension' | 'finalized_in_error';
 
 export type League = {
   id: string;
@@ -163,6 +163,17 @@ export type CommissionerOverride = {
   performed_at: string;
 };
 
+export type CommissionerSelectionReset = {
+  id: string;
+  keeper_selection_id: string;
+  season_id: string;
+  manager_season_id: string;
+  reason: OverrideReason;
+  notes: string | null;
+  performed_by_commissioner_id: string;
+  performed_at: string;
+};
+
 // Minimal Database shape for supabase-js generics. Not exhaustive (Insert/Update
 // are just Partial<Row>, and Relationships/Views/Functions are stubbed empty since
 // postgrest-js's GenericTable/GenericSchema require them to be present) — good
@@ -184,6 +195,7 @@ export type Database = {
       keeper_selections: Table<KeeperSelection>;
       keeper_selection_picks: Table<KeeperSelectionPick>;
       commissioner_overrides: Table<CommissionerOverride>;
+      commissioner_selection_resets: Table<CommissionerSelectionReset>;
       player_adp: Table<PlayerAdp>;
     };
     Views: Record<string, never>;
@@ -201,6 +213,14 @@ export type Database = {
         Returns: void;
       };
       is_yahoo_connected: { Args: { p_league_id: string }; Returns: boolean };
+      commissioner_reset_keeper_selection: {
+        Args: {
+          p_selection_id: string;
+          p_reason: OverrideReason;
+          p_notes: string | null;
+        };
+        Returns: void;
+      };
     };
   };
 };
