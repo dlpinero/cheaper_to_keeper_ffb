@@ -59,29 +59,35 @@ export function InjuryExemptionRequest({ season, managerSeason, managerId }: Pro
     load();
   }
 
-  const eligible = playerSeasons.filter((ps) => ps.games_missed_injury >= 8);
+  // A claim is a manager's way of flagging a player the commissioner hasn't already granted the
+  // exemption to. Once games_missed_injury hits 8+, the exemption is already in effect on its
+  // own — filing a claim for a player in that state would be redundant, so only offer it for
+  // players not already exempt.
+  const notYetExempt = playerSeasons.filter((ps) => ps.games_missed_injury < 8);
 
   return (
     <section>
       <h2>Injury exemption</h2>
       <p>
-        Players on your roster the commissioner has recorded as missing 8+ games to injury this
-        season. Request a review to ask the commissioner to grant the exemption.
+        If you believe a player on your roster missed 8+ regular season games (weeks 1-14) to
+        injury but hasn't been granted the exemption, file a request below for the commissioner
+        to review. Players already showing 8+ games missed already have the exemption automatically
+        and don't need a request.
       </p>
-      {eligible.length === 0 ? (
-        <p>No players on your roster currently show 8+ games missed to injury.</p>
+      {notYetExempt.length === 0 ? (
+        <p>Every player on your roster already has the correct exemption status recorded.</p>
       ) : (
         <table>
           <thead>
             <tr>
               <th>Player</th>
-              <th>Games missed</th>
+              <th>Games missed (recorded)</th>
               <th>Status</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {eligible.map((ps) => {
+            {notYetExempt.map((ps) => {
               const claim = claimFor(ps.player_id);
               return (
                 <tr key={ps.id}>
