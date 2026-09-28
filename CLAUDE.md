@@ -305,8 +305,11 @@ manager sees their seat's full history even for years before they personally too
   applies the 8-game threshold directly — no separate claim/approval gates eligibility anymore.
   The claims table (manager request + commissioner approve/deny) is now purely an optional
   audit/review layer.
-- Added ADP round display to the Players tab (`4496328`); code review flagged a data-loss bug
-  where saving/adding a player wipes other unsaved ADP edits in `PlayersPanel.tsx` — not yet fixed.
+- Fixed the ADP-editing data-loss bug in `PlayersPanel.tsx` (`ca388d1`): `saveAdp()` and
+  `addPlayer()` both called the full `load()`, which reset `adpDrafts` entirely and wiped every
+  other row's unsaved ADP input whenever one player's ADP was saved or a new player was added.
+  `saveAdp()` now updates only that player's entry in place; `addPlayer()` only refetches players.
+- Added ADP round display to the Players tab (`4496328`).
 - Passed `VITE_YAHOO_CLIENT_ID` into the production build (`8ef1e7c`).
 - Built Yahoo OAuth + draft import, Phase 4 (`b19b56e`) — code-complete but blocked on Yahoo
   activating the approved API key; see Status above.
@@ -325,4 +328,3 @@ manager sees their seat's full history even for years before they personally too
 
 ## Open/next
 Waiting on Yahoo to activate the approved API key before Phase 4 can be tested/used live.
-In the meantime: fix the ADP-editing data-loss bug in `PlayersPanel.tsx` (see Recent work above).
