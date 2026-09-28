@@ -13,11 +13,11 @@ import { YahooImportPanel } from '../components/commissioner/YahooImportPanel';
 import type { League, Season } from '../types/database';
 
 const TABS = [
+  'Injury Claims',
   'Seasons',
   'Managers',
   'Players',
   'Draft Picks',
-  'Injury Claims',
   'Keeper Preview',
   'Overrides',
   'Yahoo Import',
