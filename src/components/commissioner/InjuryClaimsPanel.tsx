@@ -136,13 +136,44 @@ export function InjuryClaimsPanel({ season }: Props) {
 
   return (
     <section>
+      <h3>Injury exemption claims</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Team</th>
+            <th>Player</th>
+            <th>Games missed</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {claims.map((c) => (
+            <tr key={c.id}>
+              <td>{teamName(c.manager_season_id)}</td>
+              <td>{playerName(c.player_id)}</td>
+              <td>{c.games_missed}</td>
+              <td>{c.status}</td>
+              <td>
+                {c.status === 'pending' && (
+                  <>
+                    <button onClick={() => reviewClaim(c, 'approved')}>Approve</button>
+                    <button onClick={() => reviewClaim(c, 'denied')}>Deny</button>
+                  </>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
       <h2>Roster continuity &amp; injury data — {season.year}</h2>
       <p>
         Enter games played and the bye week; the app computes games missed and applies the 8-game
         threshold directly — no separate claim/approval needed for the exemption to take effect.
         Only fill this in for a player you suspect might qualify, not every roster spot. Rule 1:
         continuity is absolute — dropping a player at any point during the playoffs disqualifies
-        him as a keeper, even under the injury exemption. The claims table below is now purely an
+        him as a keeper, even under the injury exemption. The claims table above is now purely an
         optional record of manager-requested reviews/commissioner overrides.
       </p>
       <form onSubmit={upsertPlayerSeason} className="inline-form">
@@ -227,37 +258,6 @@ export function InjuryClaimsPanel({ season }: Props) {
               <td>
                 {ps.games_missed_injury >= 8 && (
                   <button onClick={() => fileClaimForRecord(ps)}>File injury exemption claim</button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <h3>Injury exemption claims</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Team</th>
-            <th>Player</th>
-            <th>Games missed</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {claims.map((c) => (
-            <tr key={c.id}>
-              <td>{teamName(c.manager_season_id)}</td>
-              <td>{playerName(c.player_id)}</td>
-              <td>{c.games_missed}</td>
-              <td>{c.status}</td>
-              <td>
-                {c.status === 'pending' && (
-                  <>
-                    <button onClick={() => reviewClaim(c, 'approved')}>Approve</button>
-                    <button onClick={() => reviewClaim(c, 'denied')}>Deny</button>
-                  </>
                 )}
               </td>
             </tr>
