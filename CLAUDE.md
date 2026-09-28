@@ -269,7 +269,27 @@ total for the league); 2025 (160/160/10 manager_seasons/0 keepers-flagged, since
 seeded pre-K-badge-discovery and never revisited) and 2026 (untouched, still `setup`) confirmed
 unaffected by this operation.
 
+**Franchise-linking (2026-09-28)** — team identity was previously tracked only by
+`manager_id` + `team_name`, both of which drift year to year (renamed teams, and sometimes the
+seat changes hands to a different real person entirely). Added a `franchises` table (a persistent
+competitive seat, independent of both) with `manager_seasons.franchise_id`
+(`supabase/migrations/0009_franchises.sql`); every existing manager was backfilled with their own
+solo franchise (36 franchises for 36 managers, verified 0 null `franchise_id` rows post-backfill).
+Scope was deliberately **franchise-linking only** — no separate tool to reassign a historical
+row's `manager_id` to a different real person; user picked this over the larger option when asked.
+The commissioner reassigns seats from the existing Managers tab (`ManagersPanel.tsx`) rather than a
+new dedicated tab — chosen as the smaller build, confirmed revisitable/relocatable later if it
+outgrows that spot: a dropdown per manager merges that manager's entire `manager_seasons` history
+(all years, via `.eq('manager_id', ...)`, not scoped to one season) onto another manager's
+franchise, plus a "Split off" button that creates a fresh solo franchise for undoing a merge. No
+editable `label` column on `franchises` for v1 — the UI derives a display label client-side by
+joining back to whichever manager(s) currently share that seat. `KeeperHistory.tsx` (manager
+console) now resolves "own team" via the viewer's `franchise_id` instead of `manager_id`, so a
+manager sees their seat's full history even for years before they personally took it over.
+
 ## Recent work (most recent first)
+- Added franchise-linking (see the dated note above) so a team's keeper history stays attached
+  to its competitive seat across manager and team-name changes.
 - Seeded historical seasons 2017-2024 (draft results + keeper lineage only) — see the dated note
   above for the full method, the JS-injection technique this required, and its scope decision.
 - Moved "Injury exemption claims" to the top of the commissioner's Injury Claims tab, then
