@@ -214,13 +214,66 @@ scaffolding, unrelated to the real league. Verified 0 `manager_seasons`/injury c
 deleting (safe, no cascade impact). Only real managers remain: the commissioner (`dlpinero`) +
 9 placeholder-email managers from the 2025 seed.
 
-**Browser automation note**: pasting a large (10k+ char) single-line SQL string into Supabase's
-Monaco-based SQL Editor via synthetic keystrokes makes the tab briefly unresponsive to
-screenshot/read actions (CDP script-injection timeouts) while Monaco processes it — this is normal,
-not a crash. Wait ~10-20s and retry `get_page_text` (not `screenshot`, which times out faster);
-the content lands correctly despite the errors. Don't re-type or navigate away thinking it failed.
+**Browser automation note — large SQL pastes into the Supabase SQL Editor (superseded 2026-09-28):**
+typing a large (10k+ char) SQL string into Monaco via synthetic keystrokes (the `computer` tool's
+`type` action) reliably hangs the tab — not just a brief unresponsive spell, a genuine freeze
+(CDP `Input.dispatchKeyEvent`/`Runtime.evaluate` time out even after 90+s, and the tab never
+recovers; the fix is to abandon that tab and open a fresh one). **Use direct JS injection instead**:
+Supabase's SQL Editor exposes `window.monaco` on the page, so call
+`javascript_tool` with `window.monaco.editor.getModels()[0].setValue("<sql>")` (the SQL as a
+JSON-stringified JS string literal) to set the editor content in one instant call, no keystroke
+simulation at all — Monaco's own `onDidChangeModelContent` listeners fire normally so the app's
+Run button/unsaved-changes state stay in sync. Confirmed reliable up to ~17KB per call in this
+session (8 separate ~16.5KB SQL blocks, zero hangs). Still use `ctrl+Return` to run and
+`get_page_text`/`screenshot` to read results as normal.
+
+**Historical seasons 2017-2024 seeded (2026-09-28)** — draft results + keeper lineage only, per
+commissioner decision (no `player_seasons` roster-checkpoint/injury-exemption data for these
+closed seasons — confirmed safe since `getReferenceLineageEntry` in `referenceRound.ts` only ever
+reads the single most-recent `keeper_lineage` entry per player, so historical rows before 2025
+have zero effect on any forward math; they exist purely as an accurate historical record).
+League's Yahoo season-history chain reaches back to 2017 only (dropdown on the league page tops
+out there); Commish Notes' own "Champions" list references 2015-2016 too, but those two years
+aren't reachable through this league's linked Yahoo chain by any method tried (slug URL, numeric
+league ID + year prefix, `?draft_results_period=previous` — each 2017-2024 season's *own* distinct
+numeric league ID was discovered via `https://football.fantasysports.yahoo.com/league/cheapertokeepernycfl/<year>`,
+reading "ID# ######" from the page; draft results then pulled from
+`https://football.fantasysports.yahoo.com/<year>/f1/<id>/draftresults`, with `?draft_results_period=previous`
+as a shortcut to also get the prior year from the same numeric ID without a second lookup).
+A boxed "K" badge next to a player's name on the draft-results page marks a keeper pick;
+in scraped text it shows up as a double space before the team name (single space = fresh pick) —
+this is how `is_keeper_pick` was determined for every historical row, and it's genuine (still
+present even for now-retired 2017/2018 players, ruling out "current injury status" as the actual
+meaning). `origin` on `keeper_lineage` was set to `kept_injury_exempt` when `is_keeper_pick` and
+`round <= 3`, `kept_normal` otherwise, `drafted` for fresh picks — inferred from rule 3 (a round
+≤3 keep always requires the exemption), not independently verified per player; harmless since
+`origin` isn't read by any compute path, only for historical display.
+Manager identity across years was resolved conservatively: an exact team-name-string match against
+one of the 9 already-seeded 2025 teams reuses that same manager row (e.g. "Chubbed Up" -> Jason in
+every year it appears); three additional links were made only where the league's own Commish Notes
+"Champions" list explicitly named the manager (e.g. "2017 Jason's Great Team managed by Jason" ->
+same Jason as Chubbed Up; "2018 Mackless Daddys managed by Andy" and "2019 Rayda rooks are good
+managed by Andy" -> same Andy as Lamarvelous; a recurring "sam's Tip-Top Team" across 2017-2020 ->
+new manager "Sammy", confirmed via the "2020 Sam's Tip-Top Team managed by Sammy" note); "Davante
+be starting somethin'" (2023-2024) links to the commissioner per the same attribution method used
+for 2025. Every other unique historical team name (25 of them, e.g. "Will's Tip-Top Team", "The
+israeli Hammer", "Allen Ant Farm") got its own fresh placeholder-email manager row, reused across
+whichever years that exact name recurred but never merged with a differently-named team on a guess
+— cosmetic-only risk (manager identity doesn't affect any keeper math), so no further reconciliation
+attempted. Source data (raw scraped text + the generator script) lives in git-ignored
+`data/raw_draft_<year>.txt` and `data/gen_seed_historical.cjs` -> `data/seed_historical_<year>.sql`.
+Verified post-seed: 2017 (155 picks, 5 empty draft slots skipped), 2018 (160), 2019 (160), 2020
+(160), 2021 (159, 1 empty), 2022 (160), 2023 (158, 2 empty), 2024 (160) — all with matching
+`keeper_lineage` row counts and exactly 10 `manager_seasons` each; 26 new managers inserted (36
+total for the league); 2025 (160/160/10 manager_seasons/0 keepers-flagged, since that season was
+seeded pre-K-badge-discovery and never revisited) and 2026 (untouched, still `setup`) confirmed
+unaffected by this operation.
 
 ## Recent work (most recent first)
+- Seeded historical seasons 2017-2024 (draft results + keeper lineage only) — see the dated note
+  above for the full method, the JS-injection technique this required, and its scope decision.
+- Moved "Injury exemption claims" to the top of the commissioner's Injury Claims tab, then
+  separately moved+reverted the tab's own position in the main nav per user follow-up.
 - Reordered the manager page so Keeper selection renders before Injury exemption, and excluded
   defenses from the injury-exemption claim list (`InjuryExemptionRequest.tsx`).
 - Fixed the manager-facing injury exemption request filter (`d82338c`): it previously only let a

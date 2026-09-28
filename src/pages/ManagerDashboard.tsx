@@ -4,6 +4,7 @@ import { signOut } from '../lib/auth';
 import { supabase } from '../lib/supabaseClient';
 import { KeeperPortal } from '../components/manager/KeeperPortal';
 import { InjuryExemptionRequest } from '../components/manager/InjuryExemptionRequest';
+import { KeeperHistory } from '../components/manager/KeeperHistory';
 import type { ManagerSeason, Season } from '../types/database';
 
 interface Props {
@@ -78,6 +79,8 @@ export function ManagerDashboard({ onSwitchToCommissioner }: Props = {}) {
           keeper window for the next season.
         </p>
       )}
+
+      {manager && <KeeperHistory manager={manager} />}
     </div>
   );
 }
