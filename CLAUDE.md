@@ -125,6 +125,11 @@ manually, or push+deploy and confirm via the Actions API instead.
   `KeeperLineagePreview.tsx`.
 
 ## Data model note
+**Defenses never qualify for the injury exemption** (user-confirmed 2026-09-25): a team defense
+(`players.position = 'DEF'`) can't miss games to injury in any meaningful sense for this rule, so
+don't check defenses when scanning for injury-exemption candidates, and the manager-facing
+`InjuryExemptionRequest.tsx` filters them out of the "file a claim" list entirely.
+
 "Team" means two different things depending on the tab:
 - **Players tab**: `players.nfl_team` — the player's real NFL team, static, unrelated to the league.
 - **Draft Picks / Injury Claims / Keeper Preview / Overrides tabs**: `manager_seasons.team_name` —
@@ -216,6 +221,17 @@ not a crash. Wait ~10-20s and retry `get_page_text` (not `screenshot`, which tim
 the content lands correctly despite the errors. Don't re-type or navigate away thinking it failed.
 
 ## Recent work (most recent first)
+- Reordered the manager page so Keeper selection renders before Injury exemption, and excluded
+  defenses from the injury-exemption claim list (`InjuryExemptionRequest.tsx`).
+- Fixed the manager-facing injury exemption request filter (`d82338c`): it previously only let a
+  manager request review for a player *already* at 8+ games missed (redundant, since the engine
+  auto-grants the exemption at that point) — flipped to offer review for players NOT yet exempt,
+  the actual "please check this player" case the UI is for.
+- Made injury exemption eligibility fully app-computed (`38a2f6c`): commissioner enters games
+  played (weeks 1-14) + bye week in `InjuryClaimsPanel.tsx`, the app computes games missed and
+  applies the 8-game threshold directly — no separate claim/approval gates eligibility anymore.
+  The claims table (manager request + commissioner approve/deny) is now purely an optional
+  audit/review layer.
 - Added ADP round display to the Players tab (`4496328`); code review flagged a data-loss bug
   where saving/adding a player wipes other unsaved ADP edits in `PlayersPanel.tsx` — not yet fixed.
 - Passed `VITE_YAHOO_CLIENT_ID` into the production build (`8ef1e7c`).

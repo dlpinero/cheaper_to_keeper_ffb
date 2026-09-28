@@ -69,8 +69,8 @@ export function ManagerDashboard({ onSwitchToCommissioner }: Props = {}) {
         <p>Loading...</p>
       ) : season && managerSeason && manager ? (
         <>
-          <InjuryExemptionRequest season={season} managerSeason={managerSeason} managerId={manager.id} />
           <KeeperPortal season={season} managerSeason={managerSeason} />
+          <InjuryExemptionRequest season={season} managerSeason={managerSeason} managerId={manager.id} />
         </>
       ) : (
         <p>

@@ -41,6 +41,9 @@ export function InjuryExemptionRequest({ season, managerSeason, managerId }: Pro
   function playerName(playerId: string) {
     return players.find((p) => p.id === playerId)?.full_name ?? '?';
   }
+  function isDefense(playerId: string) {
+    return players.find((p) => p.id === playerId)?.position === 'DEF';
+  }
   function claimFor(playerId: string) {
     return claims.find((c) => c.player_id === playerId);
   }
@@ -62,8 +65,10 @@ export function InjuryExemptionRequest({ season, managerSeason, managerId }: Pro
   // A claim is a manager's way of flagging a player the commissioner hasn't already granted the
   // exemption to. Once games_missed_injury hits 8+, the exemption is already in effect on its
   // own — filing a claim for a player in that state would be redundant, so only offer it for
-  // players not already exempt.
-  const notYetExempt = playerSeasons.filter((ps) => ps.games_missed_injury < 8);
+  // players not already exempt. Defenses never qualify for the injury exemption, so exclude them.
+  const notYetExempt = playerSeasons.filter(
+    (ps) => ps.games_missed_injury < 8 && !isDefense(ps.player_id),
+  );
 
   return (
     <section>
