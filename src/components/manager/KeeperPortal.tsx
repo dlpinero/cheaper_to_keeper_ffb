@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import { CollapsibleSection } from '../CollapsibleSection';
 import { validateKeeperSelection } from '../../engine';
 import type { SelectionValidationResult } from '../../engine';
 import { buildKeeperCandidates } from '../../lib/keeperCandidates';
@@ -258,10 +259,10 @@ export function KeeperPortal({ season, managerSeason }: Props) {
   });
 
   return (
-    <section>
-      <h2>Keeper selection for the {season.year + 1} draft</h2>
-      <p>Based on your {season.year} roster.</p>
-
+    <CollapsibleSection
+      title={`Keeper selection for the ${season.year + 1} draft`}
+      description={`Based on your ${season.year} roster.`}
+    >
       {candidates.length === 0 ? (
         <p>No players recorded on your {season.year} roster yet.</p>
       ) : sortedCandidates.length === 0 ? (
@@ -363,6 +364,6 @@ export function KeeperPortal({ season, managerSeason }: Props) {
           )}
         </>
       )}
-    </section>
+    </CollapsibleSection>
   );
 }

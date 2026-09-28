@@ -147,7 +147,7 @@ export function ManagersPanel({ league, season }: Props) {
           <tr>
             <th>Name</th>
             <th>Email</th>
-            <th>Team name ({season.year})</th>
+            <th>Team name (Current)</th>
             <th>In this season</th>
             <th>Password</th>
           </tr>

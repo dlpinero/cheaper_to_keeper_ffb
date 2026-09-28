@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import { CollapsibleSection } from '../CollapsibleSection';
 import type { Manager, Season } from '../../types/database';
 
 interface Props {
@@ -77,9 +78,10 @@ export function KeeperHistory({ manager }: Props) {
   if (!seasonsLoading && seasons.length === 0) return null;
 
   return (
-    <section>
-      <h2>Keeper history</h2>
-      <p>Which players each team kept, and at what round, in past seasons.</p>
+    <CollapsibleSection
+      title="Keeper history"
+      description="Which players each team kept, and at what round, in past seasons."
+    >
       {seasonsLoading ? (
         <p>Loading...</p>
       ) : (
@@ -121,6 +123,6 @@ export function KeeperHistory({ manager }: Props) {
           )}
         </>
       )}
-    </section>
+    </CollapsibleSection>
   );
 }

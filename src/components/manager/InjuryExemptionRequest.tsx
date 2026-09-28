@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import { CollapsibleSection } from '../CollapsibleSection';
 import type { InjuryExemptionClaim, ManagerSeason, Player, PlayerSeason, Season } from '../../types/database';
 
 interface Props {
@@ -71,14 +72,10 @@ export function InjuryExemptionRequest({ season, managerSeason, managerId }: Pro
   );
 
   return (
-    <section>
-      <h2>Injury exemption</h2>
-      <p>
-        If you believe a player on your roster missed 8+ regular season games (weeks 1-14) to
-        injury but hasn't been granted the exemption, file a request below for the commissioner
-        to review. Players already showing 8+ games missed already have the exemption automatically
-        and don't need a request.
-      </p>
+    <CollapsibleSection
+      title="Injury exemption"
+      description="If you believe a player on your roster missed 8+ regular season games (weeks 1-14) to injury but hasn't been granted the exemption, file a request below for the commissioner to review. Players already showing 8+ games missed already have the exemption automatically and don't need a request."
+    >
       {notYetExempt.length === 0 ? (
         <p>Every player on your roster already has the correct exemption status recorded.</p>
       ) : (
@@ -112,6 +109,6 @@ export function InjuryExemptionRequest({ season, managerSeason, managerId }: Pro
           </tbody>
         </table>
       )}
-    </section>
+    </CollapsibleSection>
   );
 }
