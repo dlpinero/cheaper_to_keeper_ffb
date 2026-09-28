@@ -16,9 +16,13 @@ export function PlayersPanel({ season }: Props) {
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  async function load() {
+  async function loadPlayers() {
     const { data } = await supabase.from('players').select('*').order('full_name');
     setPlayers(data ?? []);
+  }
+
+  async function load() {
+    await loadPlayers();
     if (season) {
       const { data: adp } = await supabase.from('player_adp').select('*').eq('season_id', season.id);
       setAdpByPlayer(new Map((adp ?? []).map((a) => [a.player_id, a])));
@@ -46,7 +50,9 @@ export function PlayersPanel({ season }: Props) {
     setFullName('');
     setNflTeam('');
     setPosition('');
-    load();
+    // Only refetch the players list — reusing load() here would also reset adpByPlayer and wipe
+    // every other row's unsaved ADP input, not just this one's.
+    loadPlayers();
   }
 
   async function saveAdp(playerId: string) {
@@ -58,20 +64,26 @@ export function PlayersPanel({ season }: Props) {
       setError('ADP round must be a whole number between 1 and 16.');
       return;
     }
-    const { error: upsertErr } = await supabase.from('player_adp').upsert(
-      { season_id: season.id, player_id: playerId, adp_round: adpRound, source: 'manual' },
-      { onConflict: 'season_id,player_id' },
-    );
-    if (upsertErr) {
-      setError(upsertErr.message);
+    const { data: upserted, error: upsertErr } = await supabase
+      .from('player_adp')
+      .upsert(
+        { season_id: season.id, player_id: playerId, adp_round: adpRound, source: 'manual' },
+        { onConflict: 'season_id,player_id' },
+      )
+      .select()
+      .single();
+    if (upsertErr || !upserted) {
+      setError(upsertErr?.message ?? 'Could not save ADP');
       return;
     }
+    // Update this one player's saved value in place instead of calling load(), which would
+    // reset adpDrafts entirely and wipe every other row's unsaved ADP input.
+    setAdpByPlayer((m) => new Map(m).set(playerId, upserted));
     setAdpDrafts((d) => {
       const next = { ...d };
       delete next[playerId];
       return next;
     });
-    load();
   }
 
   const filtered = players.filter((p) =>
