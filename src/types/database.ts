@@ -58,6 +58,15 @@ export type ManagerSeason = {
   is_active: boolean;
   joined_at: string;
   left_at: string | null;
+  franchise_id: string | null;
+};
+
+// A persistent competitive seat in the league, independent of team name and manager —
+// see supabase/migrations/0009_franchises.sql for why this exists.
+export type Franchise = {
+  id: string;
+  league_id: string;
+  created_at: string;
 };
 
 export type Player = {
@@ -187,6 +196,7 @@ export type Database = {
       seasons: Table<Season>;
       managers: Table<Manager>;
       manager_seasons: Table<ManagerSeason>;
+      franchises: Table<Franchise>;
       players: Table<Player>;
       draft_picks: Table<DraftPick>;
       player_seasons: Table<PlayerSeason>;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import type { League, Manager, ManagerSeason, Season } from '../../types/database';
+import type { Franchise, League, Manager, ManagerSeason, Season } from '../../types/database';
 
 interface Props {
   league: League;
@@ -10,6 +10,8 @@ interface Props {
 export function ManagersPanel({ league, season }: Props) {
   const [managers, setManagers] = useState<Manager[]>([]);
   const [managerSeasons, setManagerSeasons] = useState<ManagerSeason[]>([]);
+  const [allManagerSeasons, setAllManagerSeasons] = useState<ManagerSeason[]>([]);
+  const [franchises, setFranchises] = useState<Franchise[]>([]);
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,65 @@ export function ManagersPanel({ league, season }: Props) {
       .select('*')
       .eq('season_id', season.id);
     setManagerSeasons(ms ?? []);
+
+    const managerIds = (mgrs ?? []).map((m) => m.id);
+    const [{ data: allMs }, { data: fr }] = await Promise.all([
+      managerIds.length > 0
+        ? supabase.from('manager_seasons').select('*').in('manager_id', managerIds)
+        : Promise.resolve({ data: [] as ManagerSeason[] }),
+      supabase.from('franchises').select('*').eq('league_id', league.id),
+    ]);
+    setAllManagerSeasons(allMs ?? []);
+    setFranchises(fr ?? []);
+  }
+
+  // A franchise is the persistent seat a manager's whole history is filed under, independent of
+  // team name and (if the seat later changes hands) the manager too — see
+  // supabase/migrations/0009_franchises.sql. Every manager_seasons row for a given manager points
+  // at the same franchise, so resolving a manager's current franchise only needs any one of them.
+  function franchiseIdForManager(managerId: string): string | null {
+    return allManagerSeasons.find((x) => x.manager_id === managerId)?.franchise_id ?? null;
+  }
+
+  function franchiseLabel(franchiseId: string): string {
+    const managerIds = new Set(
+      allManagerSeasons.filter((x) => x.franchise_id === franchiseId).map((x) => x.manager_id),
+    );
+    const names = managers.filter((m) => managerIds.has(m.id)).map((m) => m.display_name);
+    return names.length > 0 ? names.join(' / ') : 'Unnamed franchise';
+  }
+
+  async function createFranchise(): Promise<Franchise | null> {
+    const { data: newFranchise, error: franchiseErr } = await supabase
+      .from('franchises')
+      .insert({ league_id: league.id })
+      .select()
+      .single();
+    if (franchiseErr || !newFranchise) {
+      setError(franchiseErr?.message ?? 'Could not create franchise');
+      return null;
+    }
+    return newFranchise;
+  }
+
+  async function assignManagerToFranchise(managerId: string, franchiseId: string) {
+    setError(null);
+    const { error: updateErr } = await supabase
+      .from('manager_seasons')
+      .update({ franchise_id: franchiseId })
+      .eq('manager_id', managerId);
+    if (updateErr) {
+      setError(updateErr.message);
+      return;
+    }
+    load();
+  }
+
+  async function splitIntoNewFranchise(managerId: string) {
+    setError(null);
+    const newFranchise = await createFranchise();
+    if (!newFranchise) return;
+    await assignManagerToFranchise(managerId, newFranchise.id);
   }
 
   useEffect(() => {
@@ -56,11 +117,18 @@ export function ManagersPanel({ league, season }: Props) {
 
   async function joinSeason(manager: Manager) {
     setError(null);
+    let franchiseId = franchiseIdForManager(manager.id);
+    if (!franchiseId) {
+      const newFranchise = await createFranchise();
+      if (!newFranchise) return;
+      franchiseId = newFranchise.id;
+    }
     const { error: insertErr } = await supabase.from('manager_seasons').insert({
       manager_id: manager.id,
       season_id: season.id,
       team_name: manager.display_name,
       is_active: true,
+      franchise_id: franchiseId,
     });
     if (insertErr) {
       setError(insertErr.message);
@@ -142,12 +210,19 @@ export function ManagersPanel({ league, season }: Props) {
       {error && <p className="error">{error}</p>}
 
       <h3>Roster for {season.year}</h3>
+      <p>
+        Franchise is the seat a manager's history is filed under — it stays linked across team-name
+        changes. Merging two managers into the same franchise moves the earlier manager's whole
+        history (all years) onto the seat with the manager currently selected; use "Split off" to
+        undo that and give a manager back their own seat.
+      </p>
       <table>
         <thead>
           <tr>
             <th>Name</th>
             <th>Email</th>
             <th>Team name (Current)</th>
+            <th>Franchise</th>
             <th>In this season</th>
             <th>Password</th>
           </tr>
@@ -155,6 +230,7 @@ export function ManagersPanel({ league, season }: Props) {
         <tbody>
           {managers.map((m) => {
             const ms = managerSeasons.find((x) => x.manager_id === m.id);
+            const franchiseId = franchiseIdForManager(m.id);
             return (
               <tr key={m.id}>
                 <td>{m.display_name}</td>
@@ -165,6 +241,27 @@ export function ManagersPanel({ league, season }: Props) {
                       defaultValue={ms.team_name}
                       onBlur={(e) => updateTeamName(ms, e.target.value)}
                     />
+                  ) : (
+                    '—'
+                  )}
+                </td>
+                <td>
+                  {franchiseId ? (
+                    <>
+                      <select
+                        value={franchiseId}
+                        onChange={(e) => assignManagerToFranchise(m.id, e.target.value)}
+                      >
+                        {franchises.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {franchiseLabel(f.id)}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="button" onClick={() => splitIntoNewFranchise(m.id)}>
+                        Split off
+                      </button>
+                    </>
                   ) : (
                     '—'
                   )}

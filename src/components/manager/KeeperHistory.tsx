@@ -20,9 +20,11 @@ export function KeeperHistory({ manager }: Props) {
   const [rows, setRows] = useState<KeeperRow[]>([]);
   const [seasonsLoading, setSeasonsLoading] = useState(true);
   const [rowsLoading, setRowsLoading] = useState(false);
+  const [ownFranchiseId, setOwnFranchiseId] = useState<string | null>(null);
 
   useEffect(() => {
     loadSeasons();
+    loadOwnFranchise();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manager.league_id]);
 
@@ -40,10 +42,24 @@ export function KeeperHistory({ manager }: Props) {
     setSeasonsLoading(false);
   }
 
+  // "Own team" is tracked by franchise, not by manager_id, so a manager sees their team's full
+  // history even for years before they personally took over the seat — see
+  // supabase/migrations/0009_franchises.sql. Any one of the viewer's own manager_seasons rows
+  // carries the current franchise_id (they all point at the same one).
+  async function loadOwnFranchise() {
+    const { data } = await supabase
+      .from('manager_seasons')
+      .select('franchise_id')
+      .eq('manager_id', manager.id)
+      .not('franchise_id', 'is', null)
+      .limit(1);
+    setOwnFranchiseId(data?.[0]?.franchise_id ?? null);
+  }
+
   useEffect(() => {
     if (selectedSeasonId) loadYear(selectedSeasonId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSeasonId]);
+  }, [selectedSeasonId, ownFranchiseId]);
 
   async function loadYear(seasonId: string) {
     setRowsLoading(true);
@@ -54,12 +70,16 @@ export function KeeperHistory({ manager }: Props) {
     ]);
 
     const teamNameById = new Map((managerSeasons ?? []).map((ms) => [ms.id, ms.team_name]));
-    const ownManagerSeasonId = (managerSeasons ?? []).find((ms) => ms.manager_id === manager.id)?.id;
+    const ownManagerSeasonIds = new Set(
+      (managerSeasons ?? [])
+        .filter((ms) => ownFranchiseId !== null && ms.franchise_id === ownFranchiseId)
+        .map((ms) => ms.id),
+    );
     const playerNameById = new Map((players ?? []).map((p) => [p.id, p.full_name]));
 
     const built: KeeperRow[] = (picks ?? []).map((p) => ({
       teamName: teamNameById.get(p.manager_season_id) ?? '?',
-      isOwnTeam: p.manager_season_id === ownManagerSeasonId,
+      isOwnTeam: ownManagerSeasonIds.has(p.manager_season_id),
       playerName: playerNameById.get(p.player_id) ?? '?',
       round: p.round,
     }));
