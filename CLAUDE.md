@@ -287,7 +287,25 @@ joining back to whichever manager(s) currently share that seat. `KeeperHistory.t
 console) now resolves "own team" via the viewer's `franchise_id` instead of `manager_id`, so a
 manager sees their seat's full history even for years before they personally took it over.
 
+**Injury-exemption research must be documented (2026-10-01).** Discovered that Joe Burrow's 2025
+`games_missed_injury = 9` had been researched and entered by Claude in an earlier, undocumented
+session — no `player_seasons.notes` entry, no CLAUDE.md log, so months later neither the user nor
+Claude could tell it apart from a user-entered value or verify its source without redoing the
+research from scratch. Re-verified it this session via real sports-news sources (not Yahoo, which
+gave conflicting data for this player — its Player List page showed the wrong bye week, Week 6
+instead of the real Week 10): Burrow suffered a grade-3 turf toe injury Week 2 (9/14/25 vs JAX),
+had surgery, returned Week 13 (Thanksgiving, 11/27/25 vs BAL). Weeks 3-12 missed (10 calendar
+weeks) minus the Week 10 bye = 9 games missed to injury within weeks 1-14, confirming the stored
+value was correct. Also confirmed: Yahoo has no view that totals games played for just weeks 1-14
+— only single weeks or full-season totals (which include weeks 15-18) — so there's no shortcut to
+skip this per-player research. **Going forward**: any `games_missed_injury` value Claude
+researches and enters must get a `notes` entry (source, method, date) at the time of entry, and a
+CLAUDE.md note for anything non-trivial — the same standard already followed for ADP research and
+historical-season seeding.
+
 ## Recent work (most recent first)
+- Verified Joe Burrow's 2025 `games_missed_injury` value (see the dated note above) and backfilled
+  the documentation that was missing from when it was originally entered.
 - Added franchise-linking (see the dated note above) so a team's keeper history stays attached
   to its competitive seat across manager and team-name changes.
 - Seeded historical seasons 2017-2024 (draft results + keeper lineage only) — see the dated note
