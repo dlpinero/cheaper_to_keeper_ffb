@@ -73,6 +73,19 @@ noted above included) — **no response yet as of today.** Cross-verified the sa
 independent `curl` check (see "Browser-free provisioning check" below) — same `invalid_scope`
 result, confirming this isn't a stale/flaky reading.
 
+**Resubmitted the Developer Application Confirmation Form (2026-10-07)**, at the user's direction,
+specifically to address the two-email mismatch above. The form itself (at
+`sports.yahoo.com/developer/application-confirmation/`) turned out to already have a built-in way
+to handle this — it explicitly says "Please include any additional email addresses associated
+with your developer account or API application in the notes field." Submitted with: Name "David
+Pinero"; primary Email `welcome2yankeeland@yahoo.com` (the actual owner of developer app
+`T6cPHsgf`, matching the form's own instruction to use "the email address associated with your
+developer account"); Client ID from `VITE_YAHOO_CLIENT_ID` in `.env.local`; Notes flagging
+`dlpinero@hotmail.com` (the DocuSign signer) as the additional email and noting the original
+submission may not have reconciled the two. Confirmed success: "Your Client ID has been submitted.
+We'll be in touch shortly." Next step: wait for a response, or re-check provisioning status via
+the browser-free `curl` check below after a few days.
+
 **Browser automation note (2026-09-23):** if Claude-in-Chrome browser tools start failing with
 "Script injection timed out" / "waited 45000ms for document_idle" on every page — including
 simple ones — check `chrome://extensions` → Claude → **Site access**. If it's set to "On click,"
