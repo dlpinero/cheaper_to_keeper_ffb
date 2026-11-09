@@ -83,8 +83,23 @@ Pinero"; primary Email `welcome2yankeeland@yahoo.com` (the actual owner of devel
 developer account"); Client ID from `VITE_YAHOO_CLIENT_ID` in `.env.local`; Notes flagging
 `dlpinero@hotmail.com` (the DocuSign signer) as the additional email and noting the original
 submission may not have reconciled the two. Confirmed success: "Your Client ID has been submitted.
-We'll be in touch shortly." Next step: wait for a response, or re-check provisioning status via
-the browser-free `curl` check below after a few days.
+We'll be in touch shortly." An automated receipt arrived the same day (Oct 7, 12:15 PM) confirming
+the request was received and that review "typically takes 1-2 weeks."
+
+**Re-checked 2026-11-09** (both the `curl` scope check and the Developer app page's API
+Permissions section, still completely empty) — no change since 2026-09-15, over a month past the
+"1-2 weeks" window from the Oct 7 receipt. **Sent a second follow-up email the same day** to
+`fantasyapiapplications@yahoosports.com`, referencing the full timeline (DocuSign, the 09-23
+mismatch email, the 10-07 resubmission, and the 10-07 receipt's 1-2 week estimate) and asking for
+a status update. Next step: wait for a response, or re-check provisioning via the browser-free
+`curl` check below.
+
+**Confirmation email received 2026-10-07** ("Yahoo Fantasy API Access Request Received," to the
+`welcome2yankeeland@yahoo.com` account, display name "Ddddddddd"): "We've received your
+application, and our team has begun reviewing your request. The review process typically takes
+1-2 weeks." **Re-checked 2026-10-28 (3 weeks later, past the stated window)** via the `curl`
+method below — still `error=invalid_scope`, no change. Worth a follow-up email at this point
+since the stated 1-2 week review window has passed with no provisioning and no further contact.
 
 **Browser automation note (2026-09-23):** if Claude-in-Chrome browser tools start failing with
 "Script injection timed out" / "waited 45000ms for document_idle" on every page — including
