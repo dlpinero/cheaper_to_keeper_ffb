@@ -94,6 +94,31 @@ mismatch email, the 10-07 resubmission, and the 10-07 receipt's 1-2 week estimat
 a status update. Next step: wait for a response, or re-check provisioning via the browser-free
 `curl` check below.
 
+**Reply received 2026-11-09** (19 minutes after the follow-up, from "John," Yahoo Fantasy API
+Team): claims "Access for your Client ID has been live since September 24," attributes any
+remaining issue to "application permissions... likely not configured correctly," and asks us to
+**create a new Yahoo Developer application** (ensuring Fantasy Sports is selected under API
+Permissions at creation time), then submit its new Client ID back through the confirmation form.
+**Tested directly in the live app** (not just the `curl` probe) to check John's "live since Sept
+24" claim: clicked "Connect to Yahoo" in the Commissioner Console with a real signed-in session —
+same `invalid_scope` redirect as every prior check. His claim does not hold for the current app
+(`T6cPHsgf`); his suggested fix (new app) is the live next step, not yet done.
+
+**App-readiness audit (2026-11-09):** separately from the Yahoo-side block, audited whether the
+app itself is ready to use Yahoo data the moment access is granted. Found a real gap: the two
+Yahoo-related Supabase Edge Functions (`yahoo-oauth-exchange`, `yahoo-draft-import`) existed only
+as source in the repo and had **never been deployed** — the Supabase dashboard showed only
+`set-manager-password` live. (`YAHOO_CLIENT_ID`/`YAHOO_CLIENT_SECRET` edge function secrets and the
+`VITE_YAHOO_CLIENT_ID` GitHub Actions build secret were both already correctly configured.)
+**Fixed**: generated a project-scoped Supabase personal access token (Edge Functions read-write,
+Project Settings read only — not a full-account legacy token), linked the repo via
+`npx supabase link --project-ref xqavqcpqprkasbhxjwrx`, deployed both functions with
+`npx supabase functions deploy <name> --project-ref xqavqcpqprkasbhxjwrx --yes`, confirmed both
+show live in the dashboard, then revoked the access token immediately after (least-privilege,
+short-lived credential, not left lying around). `yahoo-draft-import`'s own code comment still
+notes its Yahoo-JSON parsing has never been tested against a real league — expect to smoke-test
+and adjust on the first real import once Yahoo access actually works.
+
 **Confirmation email received 2026-10-07** ("Yahoo Fantasy API Access Request Received," to the
 `welcome2yankeeland@yahoo.com` account, display name "Ddddddddd"): "We've received your
 application, and our team has begun reviewing your request. The review process typically takes
