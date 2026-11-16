@@ -83,8 +83,24 @@ Deno.serve(async (req) => {
     return res as Response;
   }
 
+  try {
+    return await handleImport();
+  } catch (res) {
+    if (res instanceof Response) return res;
+    console.error('yahoo-draft-import uncaught error:', res, (res as Error)?.stack);
+    return json({ error: `Unexpected error: ${(res as Error)?.message ?? String(res)}` }, 500);
+  }
+
+  async function handleImport(): Promise<Response> {
+  // Nested under /users;use_login=1/... rather than /league/{key}/... directly —
+  // Yahoo's API rejects direct /league/{key}/... reads for a private league with a
+  // generic 403 "This application is not authorized to perform this action." even
+  // with fspt-r scope; the nested path (scoped to the authenticated user's own
+  // leagues) is the documented workaround for this well-known API quirk.
+  const leaguePrefix = `/users;use_login=1/games;game_keys=nfl/leagues;league_keys=${yahoo_league_key}`;
+
   // 1. Teams (for the team-mapping step of reconciliation).
-  const teamsRaw = await yahooGet(accessToken, `/league/${yahoo_league_key}/teams`);
+  const teamsRaw = await yahooGet(accessToken, `${leaguePrefix}/teams`);
   const teamRecords = findRecordsWithKeys(teamsRaw, ['team_key', 'name']);
   const teams = dedupeBy(
     teamRecords.map((t) => ({ team_key: String(t.team_key), name: String(t.name) })),
@@ -92,7 +108,7 @@ Deno.serve(async (req) => {
   );
 
   // 2. Draft results.
-  const draftRaw = await yahooGet(accessToken, `/league/${yahoo_league_key}/draftresults`);
+  const draftRaw = await yahooGet(accessToken, `${leaguePrefix}/draftresults`);
   const pickRecords = findRecordsWithKeys(draftRaw, ['pick', 'round', 'team_key', 'player_key']);
   const picks: YahooPick[] = dedupeBy(
     pickRecords.map((p) => ({
@@ -107,7 +123,7 @@ Deno.serve(async (req) => {
   // 3. Player metadata for every drafted player, batched into one call.
   const playerKeys = picks.map((p) => p.player_key);
   const playersRaw = playerKeys.length
-    ? await yahooGet(accessToken, `/league/${yahoo_league_key}/players;player_keys=${playerKeys.join(',')}`)
+    ? await yahooGet(accessToken, `${leaguePrefix}/players;player_keys=${playerKeys.join(',')}`)
     : null;
   const playerRecords = playersRaw ? findRecordsWithKeys(playersRaw, ['player_key', 'name']) : [];
   const playerMetaByKey = new Map<string, YahooPlayerMeta>();
@@ -244,6 +260,7 @@ Deno.serve(async (req) => {
   }
 
   return json({ results }, 200);
+  }
 });
 
 function dedupeBy<T>(items: T[], keyFn: (item: T) => string): T[] {

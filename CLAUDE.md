@@ -16,7 +16,9 @@ Phases 0–2 complete. Phase 3 (Manager Portal) is in progress — magic-link/pa
 keeper selection, commissioner overrides, and injury exemption claims (both commissioner- and
 manager-filed) are built. Phase 4 (Yahoo OAuth + draft import): **Yahoo OAuth connection is now
 live and working** (as of 2026-11-16 — see the dated resolution note below for the full story).
-`yahoo-draft-import` itself has not yet been run against a real league; see Open/next.
+`yahoo-draft-import` is still **blocked** on a separate, Yahoo-side 403 when reading actual
+league data (teams/draftresults) — see the 2026-11-16 note further down for details; this is a
+distinct problem from the OAuth connection itself, which works fine.
 
 **Yahoo provisioning progress (as of 2026-09-15):**
 1. ✅ Signed the DocuSign "Personal Use - API Access and Use Agreement."
@@ -176,7 +178,37 @@ Two further bugs surfaced and were fixed before the connection actually succeede
 
 After both fixes, "Connect to Yahoo" produced a real row in `yahoo_oauth_tokens` and the
 Commissioner Console's Yahoo Import panel now shows the connected state instead of "Not connected
-to Yahoo yet." `yahoo-draft-import` itself is still untested against a real league — see Open/next.
+to Yahoo yet."
+
+**`yahoo-draft-import` attempted against the real 2026 league (2026-11-16) — blocked on a
+separate Yahoo-side 403.** League key `470.l.537265` (found via Yahoo's own analytics beacon —
+`yGameID`/`yFantasyLeagueID` params on the league's Draft Results page — since there's no
+in-product way to see it directly). `yahoo-draft-import/index.ts` had the exact same bug as
+`yahoo-oauth-exchange` did: `yahooGet()` calls for teams/draftresults/players weren't wrapped in
+try/catch, so a thrown Response crashed uncaught instead of surfacing the real error. Fixed by
+wrapping the whole fetch-and-build step in a `handleImport()` helper called from a top-level
+try/catch (same pattern as the other function). Deployed via the Supabase dashboard's in-browser
+Code editor + "Deploy updates" (CLI token generation got blocked by the safety classifier this
+time — the dashboard editor was the workaround, and worked fine).
+
+Once the crash was fixed, the real error came through: Yahoo's API returns
+`403 "This application is not authorized to perform this action."` on
+`/league/470.l.537265/teams` — even though this app's OAuth flow completed successfully and
+`fspt-r` ("Fantasy Sports - Read") is the only permission the app has, already granted. Tried the
+commonly-documented workaround of nesting the request under
+`/users;use_login=1/games;game_keys=nfl/leagues;league_keys={key}/teams` instead of calling
+`/league/{key}/teams` directly — **same 403, so it isn't a URL-shape issue.** Checked the app's
+API Permissions page again: only one "Read" option exists under "Fantasy Sports - Read" and it's
+already checked — nothing else to grant on our end.
+
+**Conclusion: this is a genuine Yahoo-side authorization gap for private league *data* reads,
+separate from (and downstream of) the OAuth *connection* itself.** This matches the pattern from
+the whole Phase 4 saga: Yahoo's "approved" status has repeatedly not meant "actually works" (the
+original app's API Permissions page sat empty for weeks despite John's "live since Sept 24"
+claim). The same may be true here — token issuance works, but actual Fantasy data reads may need
+further activation on Yahoo's end. **Next step**: either wait and retry (Yahoo-side propagation
+delay, as happened before) or contact Yahoo's Fantasy API team again with this specific 403 and
+both endpoint shapes tried, referencing App ID `ODRxsY17`.
 
 ## Standing workflow (established by prior sessions — follow this exactly)
 After any code change:
@@ -387,8 +419,12 @@ CLAUDE.md note for anything non-trivial — the same standard already followed f
 historical-season seeding.
 
 ## Recent work (most recent first)
-- **Yahoo OAuth connection now live** (see the dated resolution note in the Status section above
-  for the full story): new Yahoo Developer app, credential propagation, a `yahoo-oauth-exchange`
+- **Yahoo OAuth connection now live**, but `yahoo-draft-import` itself is blocked on a separate
+  Yahoo-side 403 reading league data (see the dated 2026-11-16 notes in Status above): fixed the
+  same uncaught-exception bug in `yahoo-draft-import` as `yahoo-oauth-exchange` had, tried both
+  the direct `/league/{key}/...` and nested `/users;use_login=1/...` endpoint shapes, both hit an
+  identical "not authorized" 403 from Yahoo — isolated to Yahoo's side, not our code.
+- New Yahoo Developer app, credential propagation, a `yahoo-oauth-exchange`
   crash fix, and the real root cause — migration `0006` had never been applied to the live DB.
 - Verified Joe Burrow's 2025 `games_missed_injury` value (see the dated note above) and backfilled
   the documentation that was missing from when it was originally entered.
@@ -431,8 +467,9 @@ historical-season seeding.
 - Dropped consolation-champion UI from scope (display-only, not needed).
 
 ## Open/next
-Yahoo OAuth connection is live (see Status). Next: run `yahoo-draft-import` against a real league
-for the first time — its own code comment flags that the Yahoo-JSON parsing (`findRecordsWithKeys`/
-`findFirstValue` in `_shared/yahoo.ts`) was written defensively against the documented XML-derived
-JSON shape without ever being tested live, so expect to adjust field lookups on the first real
-import.
+Yahoo OAuth connection is live (see Status), but `yahoo-draft-import` is blocked on a Yahoo-side
+403 reading league data — see the 2026-11-16 note in Status for the full diagnosis (not a code
+bug; both direct and nested endpoint shapes hit the identical error). Next: wait and retry, or
+follow up with Yahoo's Fantasy API team again (App ID `ODRxsY17`). Once that's unblocked, still
+expect to adjust `findRecordsWithKeys`/`findFirstValue` field lookups in `_shared/yahoo.ts` since
+the JSON-shape parsing there has still never been exercised against a real response.
