@@ -14,9 +14,9 @@ and phased build plan live in the approved plan doc:
 ## Status
 Phases 0–2 complete. Phase 3 (Manager Portal) is in progress — magic-link/password login,
 keeper selection, commissioner overrides, and injury exemption claims (both commissioner- and
-manager-filed) are built. Phase 4 (Yahoo OAuth + draft import) is code-complete
-(`b19b56e`, `8ef1e7c`) but **blocked**: Yahoo approved the API key application, but the key isn't
-functional yet, so live Yahoo data can't be pulled until Yahoo activates it.
+manager-filed) are built. Phase 4 (Yahoo OAuth + draft import): **Yahoo OAuth connection is now
+live and working** (as of 2026-11-16 — see the dated resolution note below for the full story).
+`yahoo-draft-import` itself has not yet been run against a real league; see Open/next.
 
 **Yahoo provisioning progress (as of 2026-09-15):**
 1. ✅ Signed the DocuSign "Personal Use - API Access and Use Agreement."
@@ -147,6 +147,36 @@ Look at the `location:` header. As of 2026-09-23 it's:
 — still not provisioned. Once Fantasy Sports is live, this should redirect somewhere else
 entirely (a real Yahoo login/consent flow) or at minimum drop `error=invalid_scope`. **Use this
 curl check instead of browser automation for the daily monitoring job going forward.**
+
+**RESOLVED 2026-11-16 — Yahoo OAuth connection is live.** Real-app testing still showed
+`invalid_scope` even after John's "live since Sept 24" claim, so per his suggestion we created a
+brand-new Yahoo Developer app (`ODRxsY17`, replacing the broken `T6cPHsgf`) with Fantasy Sports
+explicitly selected at creation — this time the API Permissions section was actually functional
+(the old app's had been stuck empty this whole time, a real bug on Yahoo's end, not just slow
+provisioning). New Client ID/Secret propagated to all three places they're needed: `.env.local`,
+the `VITE_YAHOO_CLIENT_ID` GitHub Actions secret (triggered a manual `workflow_dispatch` rebuild
+since the value is baked in at build time), and the `YAHOO_CLIENT_ID`/`YAHOO_CLIENT_SECRET`
+Supabase Edge Function secrets. Also added the old app's second redirect URI (the Google Apps
+Script one, `.../exec?page=yahooAuthCallback`) to the new app, restoring parity.
+
+Two further bugs surfaced and were fixed before the connection actually succeeded:
+1. `yahoo-oauth-exchange/index.ts` crashed with an uncaught exception
+   (`tokenRes.json()` throws on a non-JSON response) instead of returning a useful error — fixed
+   by reading the response as text first and `JSON.parse`-ing inside a try/catch.
+2. **The real root cause**: migration `0006_yahoo_oauth_support.sql` (adds `yahoo_oauth_tokens
+   .redirect_uri`, the `league_id` unique constraint, and the `is_yahoo_connected()` RPC) had
+   never actually been applied to the live database, despite existing in the repo since Phase 4
+   was built — the token exchange was succeeding against Yahoo every time, but the final DB write
+   failed with `Could not find the 'redirect_uri' column`. Applied the migration's exact SQL via
+   the Supabase SQL Editor (this project has no CLI migration-tracking table —
+   `supabase_migrations.schema_migrations` doesn't exist here — so migrations in this repo have
+   always been applied by hand, not via `supabase db push`; worth remembering next time a new
+   migration file is added). Checked `0007`/`0009` as a sanity check — both had applied fine, so
+   this was an isolated miss on `0006`, not a wider pattern.
+
+After both fixes, "Connect to Yahoo" produced a real row in `yahoo_oauth_tokens` and the
+Commissioner Console's Yahoo Import panel now shows the connected state instead of "Not connected
+to Yahoo yet." `yahoo-draft-import` itself is still untested against a real league — see Open/next.
 
 ## Standing workflow (established by prior sessions — follow this exactly)
 After any code change:
@@ -357,6 +387,9 @@ CLAUDE.md note for anything non-trivial — the same standard already followed f
 historical-season seeding.
 
 ## Recent work (most recent first)
+- **Yahoo OAuth connection now live** (see the dated resolution note in the Status section above
+  for the full story): new Yahoo Developer app, credential propagation, a `yahoo-oauth-exchange`
+  crash fix, and the real root cause — migration `0006` had never been applied to the live DB.
 - Verified Joe Burrow's 2025 `games_missed_injury` value (see the dated note above) and backfilled
   the documentation that was missing from when it was originally entered.
 - Added franchise-linking (see the dated note above) so a team's keeper history stays attached
@@ -398,4 +431,8 @@ historical-season seeding.
 - Dropped consolation-champion UI from scope (display-only, not needed).
 
 ## Open/next
-Waiting on Yahoo to activate the approved API key before Phase 4 can be tested/used live.
+Yahoo OAuth connection is live (see Status). Next: run `yahoo-draft-import` against a real league
+for the first time — its own code comment flags that the Yahoo-JSON parsing (`findRecordsWithKeys`/
+`findFirstValue` in `_shared/yahoo.ts`) was written defensively against the documented XML-derived
+JSON shape without ever being tested live, so expect to adjust field lookups on the first real
+import.

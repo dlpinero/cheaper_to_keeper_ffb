@@ -48,7 +48,20 @@ Deno.serve(async (req) => {
       code,
     }),
   });
-  const token = await tokenRes.json();
+
+  // Read as text first — Yahoo's token endpoint can return a non-JSON body on
+  // some failures (HTML error pages, empty bodies), and tokenRes.json() throws
+  // an uncaught SyntaxError in that case instead of surfacing a useful message.
+  const rawBody = await tokenRes.text();
+  let token: { access_token?: string; refresh_token?: string; expires_in?: number; error_description?: string };
+  try {
+    token = JSON.parse(rawBody);
+  } catch {
+    return json(
+      { error: `Yahoo token exchange failed: non-JSON response (status ${tokenRes.status}): ${rawBody.slice(0, 500)}` },
+      502,
+    );
+  }
   if (!tokenRes.ok || !token.access_token) {
     return json(
       { error: `Yahoo token exchange failed: ${token.error_description ?? tokenRes.statusText}` },
@@ -56,7 +69,8 @@ Deno.serve(async (req) => {
     );
   }
 
-  const expiresAt = new Date(Date.now() + token.expires_in * 1000).toISOString();
+  const expiresIn = typeof token.expires_in === 'number' ? token.expires_in : 3600;
+  const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
   const { error: upsertErr } = await adminClient.from('yahoo_oauth_tokens').upsert(
     {
